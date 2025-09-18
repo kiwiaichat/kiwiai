@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create Bot - KiwiAI</title>
+    <link rel="icon" type="image/x-icon" href="../assets/general/favicon.png">
+    <style>
+        /* OPIUM */
+        body {
+            margin: 0;
+            height: 100vh;
+            overflow: hidden;
+            font-family: Arial, Helvetica, sans-serif;
+        }
+
+        #root {
+            display: flex;
+            background-color: #060806;
+            color: rgb(204, 218, 206);
+            height: 100%;
+            flex-direction: column;
+        }
+
+        #kiwi {
+            color: #96d696;
+        }
+
+        #nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 20px;
+        }
+
+        #title {
+            margin-left: 20px;
+            cursor: pointer;
+        }
+
+        #auth-btn {
+            background-color: #96d696;
+            color: #060806;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        #auth-btn:hover {
+            background-color: #7abf7a;
+        }
+
+        #maker-container {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #maker-form {
+            background-color: #464746;
+            padding: 30px;
+            border-radius: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            width: 400px;
+        }
+
+        #maker-form h2 {
+            text-align: center;
+            margin: 0;
+        }
+
+        .input-field {
+            padding: 15px;
+            border: none;
+            border-radius: 5px;
+            background-color: #565756;
+            color: rgb(204, 218, 206);
+            font-size: 16px;
+        }
+
+        .input-field::placeholder {
+            color: #96d696;
+        }
+
+        textarea.input-field {
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        .submit-btn {
+            padding: 15px;
+            border: none;
+            border-radius: 5px;
+            background-color: #96d696;
+            color: #060806;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        .submit-btn:hover {
+            background-color: #7abf7a;
+        }
+    </style>
+    <script src="assets/js/api.js"></script>
+</head>
+<body>
+
+    <div id="root">
+        <div id="nav">
+            <h2 id="title" onclick="window.location.href = '/'"><span id="kiwi">kiwi</span> ai</h2>
+            <button id="auth-btn">Login</button>
+        </div>
+
+        <div id="maker-container">
+            <form id="maker-form">
+                <h2>Create Bot</h2>
+                <input type="text" id="name" name="name" class="input-field" placeholder="Bot Name" required>
+                <input type="text" id="description" name="description" class="input-field" placeholder="Description" required>
+                <select id="status" name="status" class="input-field" required>
+                    <option value="public">Public</option>
+                    <option value="private">Private</option>
+                </select>
+                <input type="text" id="tags" name="tags" class="input-field" placeholder="Tags (comma-separated)">
+                <input type="file" id="avatar" name="avatar" class="input-field" accept="image/*">
+                <textarea id="sys_pmt" name="sys_pmt" class="input-field" placeholder="System Prompt" required></textarea>
+                <textarea type="text" id="greeting" name="greeting" class="input-field" placeholder="Greeting Message" required></textarea>
+                <button type="submit" class="submit-btn">Create Bot</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const userId = localStorage.getItem('userId');
+        const authKey = localStorage.getItem('authKey');
+        let username = '';
+        let editingBotId = null;
+        let botData = null;
+
+
+        const authBtn = document.getElementById('auth-btn');
+        if (userId) {
+            authBtn.textContent = 'Profile';
+            authBtn.onclick = () => window.location.href = `/profile/${userId}`;
+        } else {
+            authBtn.textContent = 'Login';
+            authBtn.onclick = () => window.location.href = '/login';
+        }
+
+        if (!userId || !authKey) {
+            alert('You must be logged in to create a bot.');
+            window.location.href = '/login';
+        } else {
+            fetch(`/api/profile/${userId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.name) {
+                        username = data.name;
+                    } else {
+                        alert('Failed to load user data.');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching user data:', error);
+                    alert('Failed to load user data.');
+                });
+        }
+
+        // Check for edit param
+        const urlParams = new URLSearchParams(window.location.search);
+        const editParam = urlParams.get('edit');
+        if (editParam) {
+            editingBotId = editParam;
+            api.getBot(editingBotId).then(bot => {
+                if (bot.author !== username) {
+                    alert('You do not own this bot.');
+                    window.location.href = '/';
+                    return;
+                }
+                botData = bot;
+                // populate form
+                document.getElementById('name').value = bot.name;
+                document.getElementById('description').value = bot.description;
+                document.getElementById('status').value = bot.status;
+                document.getElementById('tags').value = bot.tags ? bot.tags.join(', ') : '';
+                document.getElementById('sys_pmt').value = bot.sys_pmt;
+                document.getElementById('greeting').value = bot.greeting;
+                // change h2
+                document.querySelector('#maker-form h2').textContent = 'Edit Bot';
+                // change button
+                document.querySelector('#maker-form button[type="submit"]').textContent = 'Update Bot';
+                // add delete button
+                const deleteBtn = document.createElement('button');
+                deleteBtn.type = 'button';
+                deleteBtn.className = 'submit-btn';
+                deleteBtn.textContent = 'Delete Bot';
+                deleteBtn.style.backgroundColor = '#d69696';
+                deleteBtn.onclick = () => deleteBot(editingBotId);
+                document.getElementById('maker-form').appendChild(deleteBtn);
+            }).catch(error => {
+                console.error(error);
+                alert('Failed to load bot.');
+                window.location.href = '/';
+            });
+        }
+
+        document.getElementById('maker-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            if (!username) {
+                alert('User data not loaded.');
+                return;
+            }
+            const avatarInput = document.getElementById('avatar');
+            if (avatarInput.files[0]) {
+                const reader = new FileReader();
+                reader.onload = () => {
+                    const avatarData = reader.result;
+                    submitForm(avatarData);
+                };
+                reader.readAsDataURL(avatarInput.files[0]);
+            } else {
+                submitForm('');
+            }
+        });
+
+        async function submitForm(avatarData) {
+            const formData = {
+                name: document.getElementById('name').value.trim(),
+                description: document.getElementById('description').value.trim(),
+                author: username,
+                status: document.getElementById('status').value,
+                tags: document.getElementById('tags').value.trim().split(',').map(tag => tag.trim()).filter(tag => tag),
+                avatar: avatarData,
+                sys_pmt: document.getElementById('sys_pmt').value.trim(),
+                greeting: document.getElementById('greeting').value.trim(),
+                chats: editingBotId ? (botData.chats || '') : ''
+            };
+
+            try {
+                if (editingBotId) {
+                    await api.updateBot(editingBotId, formData);
+                    alert('Bot updated successfully!');
+                } else {
+                    const response = await fetch('/api/upload-bot', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'x-user-id': userId,
+                            'x-auth-key': authKey
+                        },
+                        body: JSON.stringify(formData)
+                    });
+                    const result = await response.json();
+                    if (!response.ok) {
+                        alert(result.error || 'Failed to create bot.');
+                        return;
+                    }
+                    alert('Bot created successfully!');
+                }
+                window.location.href = '/';
+            } catch (error) {
+                alert('Error saving bot.');
+            }
+        }
+
+        async function deleteBot(botId) {
+            if (confirm('Are you sure you want to delete this bot? This action cannot be undone.')) {
+                try {
+                    await api.deleteBot(botId);
+                    alert('Bot deleted successfully!');
+                    window.location.href = '/';
+                } catch (error) {
+                    alert('Failed to delete bot.');
+                }
+            }
+        }
+    </script>
+
+</body>
+</html>
