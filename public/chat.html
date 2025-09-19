@@ -8,7 +8,7 @@
     <link rel="icon" type="image/x-icon" href="../assets/general/favicon.png">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
     <style>
-        /* OPIUM */
+        
         * {
             box-sizing: border-box;
         }
@@ -290,7 +290,7 @@
             margin: 12px 0;
         }
 
-        /* Message editing styles */
+        
         .message-actions {
             display: flex;
             align-items: center;
@@ -379,19 +379,25 @@
             background-color: #565756;
         }
 
-        /* Text formatting styles */
+        
         .message-bubble em {
             font-style: italic;
-            color: #b8e6b8;
+            opacity: 0.75;
+            color: rgba(204, 218, 206, 0.75);
+        }
+
+        .message-bot .message-bubble em {
+            color: rgba(150, 214, 150, 0.75);
         }
 
         .message-bubble .quoted-text {
-            opacity: 0.7;
-            color: rgba(204, 218, 206, 0.7);
+            font-weight: 500;
+            color: rgb(220, 235, 222);
         }
 
         .message-bot .message-bubble .quoted-text {
-            color: rgba(150, 214, 150, 0.7);
+            color: #b8e6b8;
+            font-weight: 500;
         }
 
         .message-bubble br {
@@ -414,9 +420,10 @@
             padding: 120px 20px 80px 20px;
             overflow-y: auto;
             overflow-x: hidden;
+            margin-bottom: 55px;
         }
 
-        /* custom scrollbar */
+        
         #messages::-webkit-scrollbar {
             width: 8px;
         }
@@ -472,6 +479,20 @@
             width: fit-content;
         }
 
+        .message-user .message-text {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            min-width: 0;
+            flex: 1;
+            width: 100%;
+        }
+
+        .message-user .message-name {
+            text-align: right;
+            align-self: flex-end;
+        }
+
         .message-user.editing {
             min-height: 120px;
         }
@@ -492,6 +513,20 @@
             width: fit-content;
         }
 
+        .message-bot .message-text {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            min-width: 0;
+            flex: 1;
+            width: 100%;
+        }
+
+        .message-bot .message-name {
+            text-align: left;
+            align-self: flex-start;
+        }
+
         .message-bot.editing {
             min-height: 120px;
         }
@@ -500,13 +535,6 @@
             min-height: 80px;
         }
 
-        .message-text {
-            display: flex;
-            flex-direction: column;
-            min-width: 0;
-            flex: 1;
-            width: 100%;
-        }
         
         .message-bubble {
             background-color: #96d696;
@@ -632,7 +660,7 @@
             transform: scale(0.98);
         }
 
-        /* Loading dots animation */
+        
         .loading-dots {
             display: inline-flex;
             align-items: center;
@@ -662,7 +690,7 @@
                 opacity: 1;
             }
         }
-        /* Mobile responsive styles */
+        
         @media (max-width: 768px) {
             #message-container {
                 width: 100%;
@@ -910,6 +938,165 @@
             }
         }
 
+        
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            pointer-events: none;
+        }
+
+        .toast {
+            background-color: #565756;
+            color: #96d696;
+            padding: 12px 16px;
+            border-radius: 8px;
+            border-left: 4px solid #96d696;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            min-width: 250px;
+            max-width: 400px;
+            opacity: 0;
+            transform: translateX(100%);
+            transition: all 0.3s ease;
+            pointer-events: auto;
+            word-wrap: break-word;
+        }
+
+        .toast.show {
+            opacity: 1;
+            transform: translateX(0);
+        }
+
+        .toast.error {
+            border-left-color: #d67676;
+            background-color: #5a4546;
+        }
+
+        .toast.success {
+            border-left-color: #96d696;
+            background-color: #4a5a4a;
+        }
+
+        .toast.warning {
+            border-left-color: #d6b676;
+            background-color: #5a5446;
+        }
+
+        
+        .dialog-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .dialog-overlay.show {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .dialog {
+            background-color: #565756;
+            border-radius: 12px;
+            padding: 24px;
+            min-width: 300px;
+            max-width: 500px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+            transform: scale(0.9);
+            transition: transform 0.3s ease;
+        }
+
+        .dialog-overlay.show .dialog {
+            transform: scale(1);
+        }
+
+        .dialog-title {
+            color: #96d696;
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+
+        .dialog-message {
+            color: rgb(204, 218, 206);
+            font-size: 14px;
+            line-height: 1.5;
+            margin-bottom: 20px;
+        }
+
+        .dialog-input {
+            width: 100%;
+            padding: 10px 12px;
+            background-color: #4a4b4a;
+            border: 1px solid rgba(150, 214, 150, 0.3);
+            border-radius: 6px;
+            color: rgb(204, 218, 206);
+            font-size: 14px;
+            margin-bottom: 20px;
+            box-sizing: border-box;
+        }
+
+        .dialog-input:focus {
+            outline: none;
+            border-color: #96d696;
+            box-shadow: 0 0 0 2px rgba(150, 214, 150, 0.2);
+        }
+
+        .dialog-buttons {
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+        }
+
+        .dialog-button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+
+        .dialog-button.primary {
+            background-color: #96d696;
+            color: #060806;
+        }
+
+        .dialog-button.primary:hover {
+            background-color: #8bcf8b;
+        }
+
+        .dialog-button.secondary {
+            background-color: #4a4b4a;
+            color: #96d696;
+        }
+
+        .dialog-button.secondary:hover {
+            background-color: #565756;
+        }
+
+        .dialog-button.danger {
+            background-color: #d67676;
+            color: white;
+        }
+
+        .dialog-button.danger:hover {
+            background-color: #c96666;
+        }
+
     </style>
 </head>
 
@@ -957,11 +1144,11 @@
                     </div>
                     <div class="dropdown-item">
                         <label class="dropdown-label">AI Provider</label>
-                        <input type="text" class="dropdown-input" id="ai-provider" placeholder="https://text.pollinations.ai/openai">
+                        <input type="text" class="dropdown-input" id="ai-provider" placeholder="https:
                     </div>
                     <div class="dropdown-item">
                         <label class="dropdown-label">Model</label>
-                        <input type="text" class="dropdown-input" id="ai-model" placeholder="gpt-5-nano, gpt-4, claude-3-5-sonnet, etc.">
+                        <input type="text" class="dropdown-input" id="ai-model" placeholder="mistral, gemini, gpt-5-nano">
                     </div>
                     <div class="dropdown-item">
                         <label class="dropdown-label">Max Tokens</label>
@@ -993,18 +1180,214 @@
         </div>
     </div>
 
+    <!-- Toast notification container -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <!-- Dialog overlay -->
+    <div class="dialog-overlay" id="dialog-overlay">
+        <div class="dialog" id="dialog">
+            <div class="dialog-title" id="dialog-title"></div>
+            <div class="dialog-message" id="dialog-message"></div>
+            <input class="dialog-input" id="dialog-input" style="display: none;">
+            <div class="dialog-buttons" id="dialog-buttons"></div>
+        </div>
+    </div>
+
     <script src="/assets/js/api.js"></script>
     <script>
+        
+        (function checkAuth() {
+            const userId = localStorage.getItem('userId');
+            const authKey = localStorage.getItem('authKey');
+
+            if (!userId || !authKey) {
+                window.location.href = '/login';
+                return;
+            }
+        })();
+
         let currentBot = null;
         let currentConversation = null;
         let messages = [];
+        let currentUser = null;
+
+        
+        function showToast(message, type = 'info', duration = 4000) {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.textContent = message;
+
+            container.appendChild(toast);
+
+            
+            setTimeout(() => toast.classList.add('show'), 10);
+
+            
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => container.removeChild(toast), 300);
+            }, duration);
+
+            return toast;
+        }
+
+        
+        function showDialog(title, message, buttons = [], hasInput = false, inputPlaceholder = '') {
+            return new Promise((resolve) => {
+                const overlay = document.getElementById('dialog-overlay');
+                const dialog = document.getElementById('dialog');
+                const titleEl = document.getElementById('dialog-title');
+                const messageEl = document.getElementById('dialog-message');
+                const inputEl = document.getElementById('dialog-input');
+                const buttonsEl = document.getElementById('dialog-buttons');
+
+                titleEl.textContent = title;
+                messageEl.textContent = message;
+
+                if (hasInput) {
+                    inputEl.style.display = 'block';
+                    inputEl.value = '';
+                    inputEl.placeholder = inputPlaceholder;
+                } else {
+                    inputEl.style.display = 'none';
+                }
+
+                buttonsEl.innerHTML = '';
+                buttons.forEach(button => {
+                    const btn = document.createElement('button');
+                    btn.className = `dialog-button ${button.class || 'secondary'}`;
+                    btn.textContent = button.text;
+                    btn.onclick = () => {
+                        hideDialog();
+                        resolve({
+                            action: button.action,
+                            input: hasInput ? inputEl.value : null
+                        });
+                    };
+                    buttonsEl.appendChild(btn);
+                });
+
+                overlay.classList.add('show');
+                if (hasInput) {
+                    setTimeout(() => inputEl.focus(), 100);
+                }
+
+                
+                overlay.onclick = (e) => {
+                    if (e.target === overlay) {
+                        hideDialog();
+                        resolve({ action: 'cancel', input: null });
+                    }
+                };
+            });
+        }
+
+        function hideDialog() {
+            const overlay = document.getElementById('dialog-overlay');
+            overlay.classList.remove('show');
+            overlay.onclick = null;
+        }
+
+        
+        let userHasScrolled = false;
+        let scrollTimeout = null;
+        let lastScrollPosition = 0;
+        let isAutoScrolling = false;
+
+        function isUserNearBottom(threshold = 100) {
+            const messagesDiv = document.getElementById('messages');
+            return messagesDiv.scrollTop + messagesDiv.clientHeight >= messagesDiv.scrollHeight - threshold;
+        }
+
+        function smoothScrollToBottom(force = false) {
+            const messagesDiv = document.getElementById('messages');
+            if (force || isUserNearBottom() || !userHasScrolled) {
+                isAutoScrolling = true;
+                messagesDiv.scrollTo({
+                    top: messagesDiv.scrollHeight,
+                    behavior: 'smooth'
+                });
+
+                
+                setTimeout(() => {
+                    isAutoScrolling = false;
+                }, 300);
+            }
+        }
+
+        function instantScrollToBottom() {
+            const messagesDiv = document.getElementById('messages');
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        function setupScrollTracking() {
+            const messagesDiv = document.getElementById('messages');
+
+            messagesDiv.addEventListener('scroll', () => {
+                
+                if (isAutoScrolling) return;
+
+                const currentPosition = messagesDiv.scrollTop;
+
+                
+                if (scrollTimeout) {
+                    clearTimeout(scrollTimeout);
+                }
+
+                
+                if (Math.abs(currentPosition - lastScrollPosition) > 5) {
+                    userHasScrolled = true;
+                }
+
+                
+                if (isUserNearBottom(50)) {
+                    scrollTimeout = setTimeout(() => {
+                        userHasScrolled = false;
+                    }, 1000);
+                }
+
+                lastScrollPosition = currentPosition;
+            });
+
+            
+            document.getElementById('chat-input').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    userHasScrolled = false;
+                    sendMessage();
+                }
+            });
+
+            document.getElementById('extension').addEventListener('click', () => {
+                userHasScrolled = false;
+                sendMessage();
+            });
+        }
 
         async function loadData() {
             const urlParams = new URLSearchParams(window.location.search);
             const botId = window.location.pathname.split('/').pop();
 
             try {
+                
                 currentBot = await api.getBot(botId);
+
+                
+                try {
+                    const response = await fetch(`/api/profile/${api.userId}`, {
+                        headers: {
+                            'x-auth-key': api.key,
+                            'x-user-id': api.userId
+                        }
+                    });
+                    if (response.ok) {
+                        currentUser = await response.json();
+                    }
+                } catch (error) {
+                    console.warn('Could not load user profile:', error);
+                    currentUser = null;
+                }
+
                 document.querySelector('.banner img').src = currentBot.avatar;
                 document.querySelector('.banner h4').textContent = currentBot.name;
 
@@ -1032,38 +1415,13 @@
                 renderMessages();
             } catch (error) {
                 console.error('Error loading data:', error);
-                alert('Error loading chat. Please check login.');
+                setTimeout(() => {
+                    showToast('Error loading data. Please report this issue.', 'error');
+                    
+                }, 1000);
             }
         }
 
-        // Scroll management variables
-        let userHasScrolled = false;
-        let scrollTimeout = null;
-
-        // Track if user is near bottom of messages
-        function isUserAtBottom() {
-            const messagesDiv = document.getElementById('messages');
-            return messagesDiv.scrollTop + messagesDiv.clientHeight >= messagesDiv.scrollHeight - 50;
-        }
-
-        // Smart scroll to bottom (only if user is already at bottom)
-        function smartScrollToBottom() {
-            if (isUserAtBottom() || !userHasScrolled) {
-                const messagesDiv = document.getElementById('messages');
-                messagesDiv.scrollTop = messagesDiv.scrollHeight;
-            }
-        }
-
-        // Smooth auto-scroll during generation
-        function autoScrollDuringGeneration() {
-            if (isUserAtBottom() || !userHasScrolled) {
-                const messagesDiv = document.getElementById('messages');
-                messagesDiv.scrollTo({
-                    top: messagesDiv.scrollHeight,
-                    behavior: 'smooth'
-                });
-            }
-        }
 
         function renderMessages() {
             const messagesDiv = document.getElementById('messages');
@@ -1078,10 +1436,13 @@
                        <button class="message-action-btn" onclick="regenerateMessage(${index})">Regenerate</button>`
                     : `<button class="message-action-btn" onclick="editMessage(${index})">Edit</button>`;
 
+                const userAvatar = currentUser?.avatar || '/assets/users/default.png';
+                const userName = currentUser?.name || 'You';
+
                 msgDiv.innerHTML = `
-                    <img src="${msg.role === 'user' ? '/assets/users/default.png' : currentBot.avatar}" class="pfp">
+                    <img src="${msg.role === 'user' ? userAvatar : currentBot.avatar}" class="pfp">
                     <div class="message-text">
-                        <div class="message-name">${msg.role === 'user' ? 'You' : currentBot.name}</div>
+                        <div class="message-name">${msg.role === 'user' ? userName : currentBot.name}</div>
                         <div class="message-bubble" data-index="${index}">
                             ${formatText(msg.content)}
                         </div>
@@ -1092,7 +1453,7 @@
                 `;
                 messagesDiv.appendChild(msgDiv);
             });
-            smartScrollToBottom();
+            smoothScrollToBottom();
         }
 
         async function sendMessage() {
@@ -1140,10 +1501,10 @@
                         displayedContent += aiContent[displayedContent.length];
                         bubble.innerHTML = formatText(displayedContent);
 
-                        // Auto-scroll only if user hasn't manually scrolled up
-                        autoScrollDuringGeneration();
+                        
+                        smoothScrollToBottom();
 
-                        const delay = streamEnded ? 5 : Math.random() * 10 + 5;
+                        const delay = streamEnded ? 1 : Math.random() * 3 + 1;
                         typingTimer = setTimeout(typeChar, delay);
                     } else {
                         typingTimer = null;
@@ -1191,7 +1552,7 @@
                 await api.saveChat(currentConversation.id, currentBot.id, messages);
             } catch (error) {
                 console.error('Error sending message:', error);
-                alert('Error sending message.');
+                showToast('Error sending message.', 'error');
                 msgDiv.remove();
             } finally {
                 input.disabled = false;
@@ -1200,7 +1561,7 @@
             }
         }
 
-        // These event listeners are now handled in setupScrollTracking()
+        
 
         const hamburgerMenu = document.getElementById('hamburger-menu');
         const dropdownMenu = document.getElementById('dropdown-menu');
@@ -1296,10 +1657,10 @@
                 hamburgerMenu.classList.remove('active');
                 dropdownMenu.classList.remove('active');
 
-                alert('New chat created!');
+                showToast('New chat created!', 'success');
             } catch (error) {
                 console.error('Error creating new chat:', error);
-                alert('Error creating new chat.');
+                showToast('Error creating new chat.', 'error');
             }
         }
 
@@ -1328,26 +1689,46 @@
 
             } catch (error) {
                 console.error('Error deleting chat:', error);
-                alert('Error deleting chat.');
+                showToast('Error deleting chat.', 'error');
             }
         }
 
         async function deleteCurrentChat() {
             if (!currentConversation) {
-                alert('No current chat to delete.');
+                showToast('No current chat to delete.', 'warning');
                 return;
             }
 
-            await deleteChat(currentConversation.id);
+            const result = await showDialog(
+                'Delete Chat',
+                'Are you sure you want to delete this chat? This action cannot be undone.',
+                [
+                    { text: 'Cancel', action: 'cancel', class: 'secondary' },
+                    { text: 'Delete', action: 'delete', class: 'danger' }
+                ]
+            );
+
+            if (result.action === 'delete') {
+                await deleteChat(currentConversation.id);
+            }
         }
 
-        function clearCurrentChat() {
+        async function clearCurrentChat() {
             if (!currentConversation) {
-                alert('No current chat to clear.');
+                showToast('No current chat to clear.', 'warning');
                 return;
             }
 
-            if (!confirm('Are you sure you want to clear the current chat? This will remove all messages.')) return;
+            const result = await showDialog(
+                'Clear Chat',
+                'Are you sure you want to clear the current chat? This will remove all messages.',
+                [
+                    { text: 'Cancel', action: 'cancel', class: 'secondary' },
+                    { text: 'Clear', action: 'clear', class: 'danger' }
+                ]
+            );
+
+            if (result.action !== 'clear') return;
 
             messages = [
                 { role: 'user', content: '.', timestamp: new Date().toISOString() },
@@ -1362,12 +1743,12 @@
             hamburgerMenu.classList.remove('active');
             dropdownMenu.classList.remove('active');
 
-            alert('Chat cleared!');
+            showToast('Chat cleared!', 'success');
         }
 
         function exportChat() {
             if (!currentConversation || !messages.length) {
-                alert('No chat to export.');
+                showToast('No chat to export.', 'warning');
                 return;
             }
 
@@ -1413,7 +1794,7 @@
             const currentContent = messages[index].content;
             const originalHTML = messageBubble.innerHTML;
 
-            // Add editing class to message container for stable layout
+            
             const messageContainer = messageBubble.closest('.message-user, .message-bot');
             if (messageContainer) {
                 messageContainer.classList.add('editing');
@@ -1437,7 +1818,7 @@
             const newContent = textarea.value.trim();
 
             if (!newContent) {
-                alert('Message cannot be empty.');
+                showToast('Message cannot be empty.', 'warning');
                 return;
             }
 
@@ -1445,11 +1826,20 @@
             messages[index].timestamp = new Date().toISOString();
 
             if (messages[index].role === 'user' && index < messages.length - 1) {
-                if (confirm('Editing this message will remove all subsequent messages. Continue?')) {
-                    messages = messages.slice(0, index + 1);
-                } else {
+                const result = await showDialog(
+                    'Edit Message',
+                    'Editing this message will remove all subsequent messages. Continue?',
+                    [
+                        { text: 'Cancel', action: 'cancel', class: 'secondary' },
+                        { text: 'Continue', action: 'continue', class: 'primary' }
+                    ]
+                );
+
+                if (result.action !== 'continue') {
                     renderMessages();
                     return;
+                } else {
+                    messages = messages.slice(0, index + 1);
                 }
             }
 
@@ -1458,14 +1848,14 @@
                 renderMessages();
                 loadChatHistory();
 
-                // Remove editing class after successful save
+                
                 const messageContainers = document.querySelectorAll('.message-user.editing, .message-bot.editing');
                 messageContainers.forEach(container => {
                     container.classList.remove('editing');
                 });
             } catch (error) {
                 console.error('Error saving edited message:', error);
-                alert('Error saving changes.');
+                showToast('Error saving changes.', 'error');
             }
         }
 
@@ -1473,7 +1863,7 @@
             const messageBubble = document.querySelector(`[data-index="${index}"]`);
             messageBubble.innerHTML = originalHTML;
 
-            // Remove editing class from message container
+            
             const messageContainer = messageBubble.closest('.message-user, .message-bot');
             if (messageContainer) {
                 messageContainer.classList.remove('editing');
@@ -1485,7 +1875,16 @@
 
             const messagesUpToHere = messages.slice(0, index);
 
-            if (confirm('This will regenerate the response and remove all subsequent messages. Continue?')) {
+            const result = await showDialog(
+                'Regenerate Message',
+                'This will regenerate the response and remove all subsequent messages. Continue?',
+                [
+                    { text: 'Cancel', action: 'cancel', class: 'secondary' },
+                    { text: 'Regenerate', action: 'regenerate', class: 'primary' }
+                ]
+            );
+
+            if (result.action === 'regenerate') {
                 messages = messagesUpToHere;
 
                 const lastUserMessageIndex = messages.length - 1;
@@ -1524,8 +1923,8 @@
                             displayedContent += aiContent[displayedContent.length];
                             bubble.innerHTML = formatText(displayedContent);
 
-                            // Auto-scroll only if user hasn't manually scrolled up
-                            autoScrollDuringGeneration();
+                            
+                            smoothScrollToBottom();
 
                             const delay = streamEnded ? 5 : Math.random() * 10 + 5;
                             typingTimer = setTimeout(typeChar, delay);
@@ -1570,7 +1969,7 @@
 
                     bubble.removeAttribute('id');
 
-                    // Remove regenerating class when complete
+                    
                     msgDiv.classList.remove('regenerating');
 
                     messages.push({ role: 'assistant', content: aiContent, timestamp: new Date().toISOString() });
@@ -1580,16 +1979,16 @@
                     loadChatHistory();
                 } catch (error) {
                     console.error('Error regenerating message:', error);
-                    alert('Error regenerating message.');
+                    showToast('Error regenerating message.', 'error');
                     msgDiv.classList.remove('regenerating');
                     msgDiv.remove();
                 }
             }
         }
 
-        // API Configuration functions
+        
         function loadApiConfig() {
-            const aiProvider = localStorage.getItem('aiProvider') || 'https://text.pollinations.ai/openai';
+            const aiProvider = localStorage.getItem('aiProvider') || 'https://pollinations.ai/openai'
             const aiModel = localStorage.getItem('aiModel') || 'pick a model gng :sob:';
             const maxTokens = localStorage.getItem('maxTokens') || '1000';
             const apiKey = localStorage.getItem('apiKey') || '';
@@ -1611,53 +2010,19 @@
             localStorage.setItem('maxTokens', maxTokens);
             localStorage.setItem('apiKey', apiKey);
 
-            // Close menu
+            
             hamburgerMenu.classList.remove('active');
             dropdownMenu.classList.remove('active');
 
-            // Show confirmation
-            alert('API configuration saved! Changes will take effect on next message.');
+            
+            showToast('API configuration saved! Changes will take effect on next message.', 'success');
         }
 
-        // Track user scroll behavior
-        function setupScrollTracking() {
-            const messagesDiv = document.getElementById('messages');
-
-            messagesDiv.addEventListener('scroll', () => {
-                // Clear previous timeout
-                if (scrollTimeout) {
-                    clearTimeout(scrollTimeout);
-                }
-
-                // Mark that user has scrolled
-                userHasScrolled = true;
-
-                // Reset scroll tracking if user scrolls to bottom
-                if (isUserAtBottom()) {
-                    scrollTimeout = setTimeout(() => {
-                        userHasScrolled = false;
-                    }, 1000); // Reset after 1 second at bottom
-                }
-            });
-
-            // Reset scroll tracking when new messages are sent
-            document.getElementById('chat-input').addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') {
-                    userHasScrolled = false; // Auto-scroll for new messages
-                    sendMessage();
-                }
-            });
-
-            document.getElementById('extension').addEventListener('click', () => {
-                userHasScrolled = false; // Auto-scroll for new messages
-                sendMessage();
-            });
-        }
 
         loadData().then(() => {
             loadChatHistory();
-            loadApiConfig(); // Load API configuration
-            setupScrollTracking(); // Initialize scroll tracking
+            loadApiConfig(); 
+            setupScrollTracking(); 
         });
     </script>
 

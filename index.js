@@ -322,44 +322,83 @@ function canAccessBot(bot, userId, users) {
 
 async function optimizeAndSaveImage(base64Data, fileName) {
     const buffer = Buffer.from(base64Data, 'base64')
-    const filePath = path.join(__dirname, 'public', 'assets', 'bots', fileName)
 
-    // Optimize the image: resize to max 512x512, compress to webp format for better compression
-    await sharp(buffer)
-        .resize(512, 512, {
-            fit: 'inside',
-            withoutEnlargement: true
-        })
-        .webp({ quality: 80 })
-        .toFile(filePath.replace('.png', '.webp'))
+    // Determine if we should save as WebP or PNG based on file extension
+    const useWebP = fileName.endsWith('.webp')
+    const finalFileName = useWebP ? fileName : fileName.replace(/\.(jpg|jpeg|gif|bmp)$/i, '.png')
+    const filePath = path.join(__dirname, 'public', 'assets', 'bots', finalFileName)
 
-    // Also save as PNG for compatibility
-    await sharp(buffer)
-        .resize(512, 512, {
-            fit: 'inside',
-            withoutEnlargement: true
-        })
-        .png({ compressionLevel: 9 })
-        .toFile(filePath)
+    if (useWebP) {
+        // Save as WebP for better compression
+        await sharp(buffer)
+            .resize(512, 512, {
+                fit: 'inside',
+                withoutEnlargement: true
+            })
+            .webp({ quality: 80 })
+            .toFile(filePath)
+    } else {
+        // Save as PNG for compatibility
+        await sharp(buffer)
+            .resize(512, 512, {
+                fit: 'inside',
+                withoutEnlargement: true
+            })
+            .png({ compressionLevel: 9 })
+            .toFile(filePath)
+    }
 
-    return `/assets/bots/${fileName}`
+    return `/assets/bots/${finalFileName}`
 }
 
 function deleteImageFile(avatarPath) {
     if (avatarPath && avatarPath.startsWith('/assets/bots/')) {
         const filePath = path.join(__dirname, 'public', avatarPath)
-        const webpPath = filePath.replace('.png', '.webp')
 
-        // Delete both PNG and WebP versions if they exist
+        // Delete the single image file
         try {
             if (fs.existsSync(filePath)) {
                 fs.unlinkSync(filePath)
             }
-            if (fs.existsSync(webpPath)) {
-                fs.unlinkSync(webpPath)
+        } catch (error) {
+            console.error('Error deleting image file:', error)
+        }
+    }
+}
+
+async function optimizeAndSaveUserImage(base64Data, fileName) {
+    const buffer = Buffer.from(base64Data, 'base64')
+
+    // Ensure users directory exists
+    const usersDir = path.join(__dirname, 'public', 'assets', 'users')
+    if (!fs.existsSync(usersDir)) {
+        fs.mkdirSync(usersDir, { recursive: true })
+    }
+
+    const filePath = path.join(usersDir, fileName)
+
+    // Save as PNG for compatibility
+    await sharp(buffer)
+        .resize(200, 200, {
+            fit: 'cover',
+            position: 'center'
+        })
+        .png({ compressionLevel: 9 })
+        .toFile(filePath)
+
+    return `/assets/users/${fileName}`
+}
+
+function deleteUserImageFile(avatarPath) {
+    if (avatarPath && avatarPath.startsWith('/assets/users/') && avatarPath !== '/assets/users/default.png') {
+        const filePath = path.join(__dirname, 'public', avatarPath)
+
+        try {
+            if (fs.existsSync(filePath)) {
+                fs.unlinkSync(filePath)
             }
         } catch (error) {
-            console.error('Error deleting image files:', error)
+            console.error('Error deleting user image file:', error)
         }
     }
 }
@@ -381,6 +420,8 @@ app.post("/api/upload-bot", async (request, reply) => {
     if (avatar && avatar.startsWith('data:image/')) {
         // Decode base64, optimize and save
         const base64Data = avatar.split(',')[1]
+
+        // Use PNG by default, or WebP if specified for better compression
         const fileName = `${bot_id}.png`
         avatarPath = await optimizeAndSaveImage(base64Data, fileName)
     }
@@ -456,6 +497,99 @@ app.delete('/api/chats/:id', async (request, reply) => {
     return { status: 'ok' }
 })
 
+app.put('/api/profile/update', async (request, reply) => {
+    await auth_middleware(request, reply)
+
+    const userId = request.headers['x-user-id']
+    const { bio, avatar } = request.body
+
+    try {
+        const users = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'users.json'), 'utf-8'))
+
+        if (!users[userId]) {
+            return reply.code(404).send({ error: 'User not found' })
+        }
+
+        // Update bio if provided
+        if (bio !== undefined) {
+            users[userId].bio = bio
+        }
+
+        // Handle avatar update if provided
+        if (avatar && avatar.startsWith('data:image/')) {
+            // Delete old avatar if it's not the default
+            if (users[userId].avatar && users[userId].avatar !== '/assets/users/default.png') {
+                deleteUserImageFile(users[userId].avatar)
+            }
+
+            // Save new avatar
+            const base64Data = avatar.split(',')[1]
+            const fileName = `${userId}.png`
+            const avatarPath = await optimizeAndSaveUserImage(base64Data, fileName)
+            users[userId].avatar = avatarPath
+        }
+
+        // Save updated user data
+        fs.writeFileSync(path.join(__dirname, 'data', 'users.json'), JSON.stringify(users, null, 2))
+
+        return { status: 'ok', message: 'Profile updated successfully' }
+    } catch (error) {
+        console.error('Error updating profile:', error)
+        return reply.code(500).send({ error: 'Internal server error' })
+    }
+})
+
+app.delete('/api/delete-account', async (request, reply) => {
+    await auth_middleware(request, reply)
+
+    const userId = request.headers['x-user-id']
+
+    try {
+        const users = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'users.json'), 'utf-8'))
+        const bots = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'bots.json'), 'utf-8'))
+        const conversations = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'conversations.json'), 'utf-8'))
+
+        if (!users[userId]) {
+            return reply.code(404).send({ error: 'User not found' })
+        }
+
+        const user = users[userId]
+
+        // Delete all user's bots and their images
+        if (user.bots) {
+            user.bots.forEach(botId => {
+                if (bots[botId]) {
+                    // Delete bot image files
+                    deleteImageFile(bots[botId].avatar)
+                    // Delete bot from bots.json
+                    delete bots[botId]
+                }
+            })
+        }
+
+        // Delete all user's conversations
+        if (user.conversations) {
+            user.conversations.forEach(conversationId => {
+                delete conversations[conversationId]
+            })
+        }
+
+        // Delete user account and avatar
+        deleteUserImageFile(user.avatar)
+        delete users[userId]
+
+        // Save updated data
+        fs.writeFileSync(path.join(__dirname, 'data', 'users.json'), JSON.stringify(users, null, 2))
+        fs.writeFileSync(path.join(__dirname, 'data', 'bots.json'), JSON.stringify(bots, null, 2))
+        fs.writeFileSync(path.join(__dirname, 'data', 'conversations.json'), JSON.stringify(conversations, null, 2))
+
+        return { status: 'ok', message: 'Account deleted successfully' }
+    } catch (error) {
+        console.error('Error deleting account:', error)
+        return reply.code(500).send({ error: 'Internal server error' })
+    }
+})
+
 app.setNotFoundHandler(async (request, reply) => {
   const filePath = path.join(__dirname, 'public', request.url)
   try {
@@ -468,7 +602,7 @@ app.setNotFoundHandler(async (request, reply) => {
 const start = async () => {
   try {
     await app.listen({ port: 4000, host: '0.0.0.0' })
-    app.log.info(`Server is running on http://localhost:400`)
+    console.log(`Server is running on http://localhost:4000`)
 
     // Initialize tag usage on startup
     updateTagUsage()

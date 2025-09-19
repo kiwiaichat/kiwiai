@@ -6,9 +6,7 @@
     <title>Home - KiwiAI</title>
     <link rel="icon" type="image/x-icon" href="/assets/general/favicon.png">
     <style>
-        /* ========================================
-           CSS VARIABLES (DESIGN SYSTEM)
-        ======================================== */
+        
         :root {
             --color-primary: #96d696;
             --color-primary-hover: #7abf7a;
@@ -49,9 +47,7 @@
             --transition-slow: 0.3s ease-in-out;
         }
 
-        /* ========================================
-           RESET & BASE STYLES
-        ======================================== */
+        
         * {
             box-sizing: border-box;
         }
@@ -75,9 +71,7 @@
             min-height: 100vh;
         }
 
-        /* ========================================
-           HEADER & NAVIGATION
-        ======================================== */
+        
         #kiwi {
             color: var(--color-text-accent);
             text-shadow: 0 0 10px rgba(150, 214, 150, 0.3);
@@ -127,9 +121,7 @@
         }
 
 
-        /* ========================================
-           CARDS & CONTENT
-        ======================================== */
+        
         #cards {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -256,9 +248,7 @@
         }
 
 
-        /* ========================================
-           FOOTER
-        ======================================== */
+        
         footer {
             background: linear-gradient(135deg, var(--color-bg-card), #3a3b3a);
             padding: var(--spacing-xl);
@@ -282,9 +272,7 @@
         }
 
 
-        /* ========================================
-           BUTTONS & INTERACTIVE ELEMENTS
-        ======================================== */
+        
         #auth-btn {
             background: linear-gradient(135deg, var(--color-primary), var(--color-primary-hover));
             color: var(--color-bg-main);
@@ -341,9 +329,7 @@
     box-shadow: var(--shadow-md);
 }
 
-/* ========================================
-           CONTROLS & FORM ELEMENTS
-        ======================================== */
+
 #controls {
     display: flex;
     flex-direction: row;
@@ -488,9 +474,7 @@
 }
 
 
-/* ========================================
-           TAGS
-        ======================================== */
+
 .tag {
     background: linear-gradient(135deg, var(--color-primary), var(--color-primary-hover));
     color: var(--color-bg-main);
@@ -529,7 +513,7 @@
     margin-bottom: var(--spacing-md);
 }
 
-/* Mobile responsive styles */
+
 @media (max-width: 768px) {
     #nav {
         padding: 10px 15px;
@@ -689,11 +673,9 @@
     }
 }
 
-        /* ========================================
-           ACCESSIBILITY & PERFORMANCE
-        ======================================== */
+        
 
-        /* Reduce motion for users who prefer it */
+        
         @media (prefers-reduced-motion: reduce) {
             * {
                 animation-duration: 0.01ms !important;
@@ -702,7 +684,7 @@
             }
         }
 
-        /* High contrast mode support */
+        
         @media (prefers-contrast: high) {
             :root {
                 --color-primary: #00ff00;
@@ -721,7 +703,7 @@
             }
         }
 
-        /* Focus styles for keyboard navigation */
+        
         .card:focus,
         .bot-action-btn:focus,
         .create-btn:focus,
@@ -730,7 +712,7 @@
             outline-offset: 2px;
         }
 
-        /* Loading animation for cards */
+        
         .card.loading {
             background: linear-gradient(
                 90deg,
@@ -809,16 +791,16 @@
         const authBtn = document.getElementById('auth-btn');
         const userId = localStorage.getItem('userId');
         if (userId) {
-            // Replace button with user profile picture
+            
             authBtn.style.display = 'none';
             const userPfp = document.createElement('img');
             userPfp.className = 'user-pfp';
-            userPfp.src = '/assets/users/default.png'; // Default user avatar
+            userPfp.src = '/assets/users/default.png'; 
             userPfp.alt = 'User Profile';
             userPfp.onclick = () => window.location.href = `/profile/${userId}`;
 
-            // Try to load user's actual profile picture
-            fetch(`/api/users/${userId}`)
+            
+            fetch(`/api/profile/${userId}`)
                 .then(response => response.json())
                 .then(userData => {
                     if (userData.avatar) {
@@ -827,7 +809,7 @@
                 })
                 .catch(console.error);
 
-            document.getElementById('nav').appendChild(userPfp);
+            document.querySelector('.nav-actions').appendChild(userPfp);
         } else {
             authBtn.textContent = 'Login';
             authBtn.onclick = () => window.location.href = '/login';
@@ -852,7 +834,7 @@
                     option.textContent = tag;
                     tagSelect.appendChild(option);
                 });
-                // Create a map for sorting tags by usage
+                
                 window.tagOrder = new Map(tags.map((tag, index) => [tag, index]));
             } catch (error) {
                 console.error('Error fetching tags:', error);
@@ -884,7 +866,7 @@
                 const currentUserId = localStorage.getItem('userId');
 
                 data.bots.forEach(bot => {
-                    // Skip if this bot is already displayed
+                    
                     if (displayedBotIds.has(bot.id)) {
                         return;
                     }
@@ -892,7 +874,7 @@
                     const card = document.createElement('div');
                     card.className = 'card';
                     card.onclick = (e) => {
-                        // Don't navigate if clicking on action buttons
+                        
                         if (e.target.classList.contains('bot-action-btn')) {
                             e.stopPropagation();
                             return;
@@ -928,7 +910,7 @@
 
                     card.innerHTML = `
                         ${botActions}
-                        <img src="${bot.avatar || 'https://placehold.co/600x400/png'}" alt="Bot Avatar" class="avatar">
+                        <img src="${bot.avatar || '/assets/general/noresponse.png'}" alt="Bot Avatar" class="avatar">
                         <span id="name">${bot.name}</span>
                         <span id="description">${bot.description}</span>
                         <div class="tags">${tagsHtml}</div>
@@ -972,7 +954,7 @@
                 });
 
                 if (response.ok) {
-                    // Remove the card from the page
+                    
                     const cards = document.getElementById('cards');
                     const cardToRemove = event.target.closest('.card');
                     cards.removeChild(cardToRemove);
@@ -991,11 +973,11 @@
             loadBots({});
         });
 
-        // Event listeners for controls
+        
         document.getElementById('search').addEventListener('input', reloadBots);
         document.getElementById('tags').addEventListener('change', reloadBots);
 
-        // Optional: scroll for more if no filters
+        
         window.addEventListener('scroll', () => {
             const search = document.getElementById('search').value;
             const selectedTags = Array.from(document.getElementById('tags').selectedOptions).map(option => option.value);
@@ -1004,7 +986,7 @@
             }
         });
 
-        // Initialize
+        
         fetchTags();
         loadBots();
     </script>

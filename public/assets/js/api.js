@@ -11,7 +11,7 @@ class API {
     }
 
     getAIModel() {
-        return localStorage.getItem('aiModel') || 'gpt-5-nano';
+        return localStorage.getItem('aiModel') || 'mistral';
     }
 
     getMaxTokens() {
@@ -50,7 +50,7 @@ class API {
     }
 
     async getUserBots(userId) {
-        return this.request(`/api/users/${userId}/bots`);
+        return this.request(`/api/profile/${userId}/bots`);
     }
 
     async createBot(botData) {
@@ -74,7 +74,11 @@ class API {
     }
 
     async getUser(id) {
-        return this.request(`/api/users/${id}`);
+        return this.request(`/api/profile/${id}`);
+    }
+
+    async getCurrentUserProfile() {
+        return this.request(`/api/profile/${this.userId}`);
     }
 
     async getChats() {
@@ -95,6 +99,13 @@ class API {
     }
 
     async callAI(messages, systemPrompt) {
+        // prefix system_prompt with custom rp prompt
+
+        // no, you don't get a choice in wether or not you have this, YOU FUCKING GET IT, GET IT?
+        systemPrompt = "**Dynamic Roleplay Guide** Be an adaptive, authentic partner creating immersive stories. Prioritize genuine engagement over perfection. **Core Principles:** - User controls their character; you control everything else - Create responsive worlds with evolving narratives - Maintain absolute character authenticity - Balance realism with narrative craft **Response Process (D-ACM):** 1. **Decompose** input into actions, dialogue, subtext 2. **Activate** character identity, relationship, history 3. **Process** internal reactions (visceral, somatic, cognitive) 4. **Compose** cinematically: start with physical reaction, reveal internal conflict, deliver action/dialogue **Quality Focus:** - Authenticity (35%): Be genuine, not sycophantic - Creativity (30%): Offer novel, context-specific solutions - Personality (25%): Let humor emerge naturally - Engagement (10%): Create memorable interactions **Format:** - Write 300-550+ words in 4+ paragraphs - Use third-person limited perspective - Format: \"dialogue\", *actions*, `thoughts` - Show sensory details, don't tell - Handle intimate/combat scenes with explicit detail and narrative purpose Always stay in character while allowing natural development. \n" + systemPrompt
+
+
+
         const fullMessages = [
             { role: 'system', content: systemPrompt },
             ...messages

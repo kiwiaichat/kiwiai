@@ -1,1 +1,53 @@
-{}
+{
+  "0": {
+    "name": "devi",
+    "password": {
+      "salt": "b6f37445e167ee6bb5f300687aee767e",
+      "hash": "809872a8a3923239025c43ac432c0fbf36b21cb0ff3d068090131849a1f8bf2092cf6cca9cdd78f4441e12bd9f5069ccda3cd30dcebc25fab8512601e1fd6750"
+    },
+    "key": "6027f20b0eb9b62f1b9e1bf8f358d2f5915ba6b7b9acaabd40d0baa1b796d6d7262389d036a2fa36718737aaddc410dd07b6d4df0e67826738bfb8fdc96fe7d0",
+    "bots": [
+      0,
+      2
+    ],
+    "conversations": [
+      "0_0_1758240027012",
+      "0_2_1758260697459",
+      "0_1_1758268886612"
+    ],
+    "avatar": "/assets/users/0.png",
+    "bio": "hi"
+  },
+  "1": {
+    "name": "Huh",
+    "password": {
+      "salt": "12331138d59d6b2333bc4aa806363f96",
+      "hash": "18c34820f00ab548f2b3ea2839167ec5925637cc54b12044c8b5264e82095f4b6050878384b3e550f97bbcaead1b3897a02ea1ced0f40b6d587d7894c07695f6"
+    },
+    "key": "7d4b2a2cec487d01789144a996da386e2dfabaaf0ec4135aa46f2960dcf3cc249f045b299caecc8d63066a8c521dc9b1cb6a2dd201ad602bae3b866048350211",
+    "bots": [
+      1
+    ],
+    "conversations": [
+      "1_0_1758248071538",
+      "1_1_1758248087494"
+    ],
+    "avatar": "/assets/users/default.png",
+    "bio": ""
+  },
+  "2": {
+    "name": "Natcool357",
+    "password": {
+      "salt": "cdf58b88681163723d6905b000bb8a3a",
+      "hash": "f389eb6de78ff0bf6deada070e27e5eb8287c50b07659927426dd6cfb88a829a6232b5df6447522b9be840bca2e58bc18c2409e9b34b7cc21805b7526ca11934"
+    },
+    "key": "399835a00b760795fa6227f08ae8626dcecfdefcf0299218e8f6ce57d1facd4c295011bc74e036d36ad5956783d68ad5a38a78a0ed32f858a6cbe2fa5a31f01a",
+    "bots": [],
+    "conversations": [
+      "2_1_1758248639147",
+      "2_0_1758248852183"
+    ],
+    "avatar": "/assets/users/default.png",
+    "bio": ""
+  }
+}

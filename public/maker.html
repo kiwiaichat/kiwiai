@@ -6,7 +6,7 @@
     <title>Create Bot - KiwiAI</title>
     <link rel="icon" type="image/x-icon" href="../assets/general/favicon.png">
     <style>
-        /* OPIUM */
+        
         body {
             margin: 0;
             height: 100vh;
@@ -126,7 +126,7 @@
                     <option value="private">Private</option>
                 </select>
                 <input type="text" id="tags" name="tags" class="input-field" placeholder="Tags (comma-separated)">
-                <input type="file" id="avatar" name="avatar" class="input-field" accept="image/*">
+                <input type="file" id="avatar" name="avatar" class="input-field" accept="image/*" required>
                 <textarea id="sys_pmt" name="sys_pmt" class="input-field" placeholder="System Prompt" required></textarea>
                 <textarea type="text" id="greeting" name="greeting" class="input-field" placeholder="Greeting Message" required></textarea>
                 <button type="submit" class="submit-btn">Create Bot</button>
@@ -170,7 +170,7 @@
                 });
         }
 
-        // Check for edit param
+        
         const urlParams = new URLSearchParams(window.location.search);
         const editParam = urlParams.get('edit');
         if (editParam) {
@@ -182,18 +182,18 @@
                     return;
                 }
                 botData = bot;
-                // populate form
+                
                 document.getElementById('name').value = bot.name;
                 document.getElementById('description').value = bot.description;
                 document.getElementById('status').value = bot.status;
                 document.getElementById('tags').value = bot.tags ? bot.tags.join(', ') : '';
                 document.getElementById('sys_pmt').value = bot.sys_pmt;
                 document.getElementById('greeting').value = bot.greeting;
-                // change h2
+                
                 document.querySelector('#maker-form h2').textContent = 'Edit Bot';
-                // change button
+                
                 document.querySelector('#maker-form button[type="submit"]').textContent = 'Update Bot';
-                // add delete button
+                
                 const deleteBtn = document.createElement('button');
                 deleteBtn.type = 'button';
                 deleteBtn.className = 'submit-btn';
