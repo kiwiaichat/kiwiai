@@ -5,6 +5,7 @@ node_modules/
 data/
 
 # Ignore public/assets/user directory, except for default.png
-public/assets/user/
+public/assets/users/
+!public/assets/users/default.png
 # Ignore public/assets/bots directory
 public/assets/bots/
