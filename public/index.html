@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Home - KiwiAI</title>
     <link rel="icon" type="image/x-icon" href="/assets/general/favicon.png">
+    <link rel="stylesheet" href="/assets/css/card.css">
+    <meta name="description" content="kiwiai do just be that goated">
+    <meta property="og:image" content="/assets/general/favicon.png">
     <style>
         
         :root {
@@ -55,11 +58,11 @@
         body {
             margin: 0;
             height: 100vh;
-            overflow: hidden;
             font-family: var(--font-family);
             line-height: 1.5;
             -webkit-font-smoothing: antialiased;
             -moz-osx-font-smoothing: grayscale;
+             background: linear-gradient(135deg, var(--color-bg-main) 0%, #0a0c0a 100%);
         }
 
         #root {
@@ -68,7 +71,7 @@
             color: var(--color-text-primary);
             height: 100%;
             flex-direction: column;
-            min-height: 100vh;
+            min-height: 100%;
         }
 
         
@@ -111,6 +114,8 @@
             transition: var(--transition-normal);
             box-shadow: var(--shadow-sm);
             letter-spacing: 0.3px;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
         }
 
         .create-btn-nav:hover {
@@ -123,128 +128,40 @@
 
         
         #cards {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            display: flex;
+            flex-wrap: wrap;
             gap: var(--spacing-lg);
-            overflow-y: auto;
+            padding: var(--spacing-xl);
+            margin-bottom: var(--spacing-xl);
+            justify-content: center;
+            align-items: start;
+        }
+
+        #recents {
             padding: var(--spacing-xl);
             margin-bottom: var(--spacing-xl);
         }
-        .card {
+
+        #recents-cards {
             display: flex;
-            flex-direction: column;
-            padding: var(--spacing-lg);
-            background: linear-gradient(145deg, var(--color-bg-card), #3a3b3a);
-            border-radius: var(--spacing-md);
-            transition: all var(--transition-normal);
-            position: relative;
-            border: 1px solid rgba(150, 214, 150, 0.1);
-            box-shadow: var(--shadow-sm);
-            overflow: hidden;
+            gap: var(--spacing-lg);
+            overflow-x: auto;
+            padding-bottom: var(--spacing-sm);
+            justify-content: center;
         }
 
-        .card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 2px;
-            background: linear-gradient(90deg, var(--color-primary), var(--color-primary-hover));
-            opacity: 0;
-            transition: var(--transition-normal);
+        #recents-cards::-webkit-scrollbar {
+            height: 8px;
         }
 
-        .card:hover {
-            transform: translateY(-4px) scale(1.01);
-            cursor: pointer;
-            box-shadow: var(--shadow-lg);
-            border-color: var(--color-primary);
+        #recents-cards::-webkit-scrollbar-track {
+            background: var(--color-bg-secondary);
+            border-radius: 4px;
         }
 
-        .card:hover::before {
-            opacity: 1;
-        }
-
-        .bot-actions {
-            position: absolute;
-            top: var(--spacing-md);
-            right: var(--spacing-md);
-            display: none;
-            gap: var(--spacing-sm);
-            z-index: 10;
-        }
-
-        .card:hover .bot-actions {
-            display: flex;
-        }
-
-        .bot-action-btn {
-            background-color: var(--color-primary);
-            color: var(--color-bg-main);
-            border: none;
-            padding: var(--spacing-sm) 8px;
-            border-radius: var(--border-radius-sm);
-            cursor: pointer;
-            font-size: var(--font-size-sm);
-            font-weight: 600;
-            transition: var(--transition-fast);
-            box-shadow: var(--shadow-sm);
-        }
-
-        .bot-action-btn:hover {
-            background-color: var(--color-primary-hover);
-            transform: translateY(-1px);
-            box-shadow: var(--shadow-md);
-        }
-
-        .bot-action-btn.delete {
-            background-color: var(--color-danger);
-        }
-
-        .bot-action-btn.delete:hover {
-            background-color: var(--color-danger-hover);
-        }
-
-        .avatar {
-            border-radius: var(--border-radius-lg);
-            margin-bottom: var(--spacing-lg);
-            width: 100%;
-            height: 200px;
-            object-fit: cover;
-            transition: var(--transition-normal);
-            box-shadow: var(--shadow-sm);
-        }
-
-        .card:hover .avatar {
-            transform: scale(1.02);
-        }
-
-        #name {
-            font-size: var(--font-size-xl);
-            font-weight: 700;
-            margin-bottom: var(--spacing-sm);
-            color: var(--color-white);
-        }
-
-        #description {
-            font-size: var(--font-size-base);
-            line-height: 1.6;
-            margin-bottom: var(--spacing-md);
-            opacity: 0.9;
-        }
-
-        #author {
-            font-size: var(--font-size-sm);
-            color: var(--color-text-accent);
-            cursor: pointer;
-            transition: var(--transition-fast);
-            font-weight: 500;
-        }
-
-        #author:hover {
-            color: var(--color-primary-hover);
-            text-decoration: underline;
+        #recents-cards::-webkit-scrollbar-thumb {
+            background: var(--color-primary);
+            border-radius: 4px;
         }
 
 
@@ -284,6 +201,8 @@
             font-weight: 600;
             transition: var(--transition-normal);
             box-shadow: var(--shadow-sm);
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
         }
 
         #auth-btn:hover {
@@ -385,6 +304,9 @@
     transition: var(--transition-normal);
     box-shadow: var(--shadow-sm);
     font-weight: 500;
+    -webkit-appearance: none;
+    -webkit-user-select: text;
+    user-select: text;
 }
 
 #search::placeholder {
@@ -588,14 +510,13 @@
     }
 
 
-    .card {
-        width: calc(100vw - 40px);
-        max-width: 350px;
-        margin: 8px;
-    }
 
     #cards {
         padding: 0 5px;
+        grid-template-columns: repeat(2, 1fr);
+        justify-items: center;
+        max-width: 100vw;
+        gap: 12px;
     }
 
     .bot-actions {
@@ -609,11 +530,6 @@
         font-size: 11px;
     }
 
-    .avatar {
-        width: 100%;
-        height: 200px;
-        object-fit: cover;
-    }
 
     #name {
         font-size: 16px;
@@ -622,6 +538,10 @@
     #description {
         font-size: 13px;
         line-height: 1.4;
+        -webkit-line-clamp: 4;
+        display: -webkit-box !important;
+        -webkit-box-orient: vertical !important;
+        overflow: hidden !important;
     }
 
     #author {
@@ -655,10 +575,6 @@
         height: 30px;
     }
 
-    .card {
-        margin: 5px;
-        padding: 8px;
-    }
 
     #name {
         font-size: 15px;
@@ -666,11 +582,12 @@
 
     #description {
         font-size: 12px;
+        -webkit-line-clamp: 3;
+        display: -webkit-box !important;
+        -webkit-box-orient: vertical !important;
+        overflow: hidden !important;
     }
 
-    .avatar {
-        height: 150px;
-    }
 }
 
         
@@ -694,9 +611,6 @@
                 --color-text-primary: #ffffff;
             }
 
-            .card {
-                border: 2px solid var(--color-primary);
-            }
 
             .tag {
                 border: 1px solid var(--color-bg-main);
@@ -704,34 +618,35 @@
         }
 
         
-        .card:focus,
-        .bot-action-btn:focus,
         .create-btn:focus,
         #auth-btn:focus {
             outline: 2px solid var(--color-primary);
             outline-offset: 2px;
         }
 
-        
-        .card.loading {
-            background: linear-gradient(
-                90deg,
-                var(--color-bg-card) 25%,
-                rgba(150, 214, 150, 0.1) 50%,
-                var(--color-bg-card) 75%
-            );
-            background-size: 200% 100%;
-            animation: shimmer 1.5s infinite;
+        /* Force correct avatar sizing for cards */
+        .card .avatar {
+            width: 100% !important;
+            height: 200px !important;
+            object-fit: cover !important;
+            border-radius: var(--border-radius-lg);
+            margin-bottom: var(--spacing-lg);
+            transition: var(--transition-normal);
+            box-shadow: var(--shadow-sm);
+            flex-shrink: 0;
         }
 
-        @keyframes shimmer {
-            0% {
-                background-position: -200% 0;
-            }
-            100% {
-                background-position: 200% 0;
+        .card:hover .avatar {
+            transform: scale(1.02);
+        }
+
+        @media (max-width: 768px) {
+            .card .avatar {
+                height: 150px !important;
             }
         }
+
+        
 
     </style>
 </head>
@@ -764,6 +679,8 @@
                 </div>
             </div>
 
+            
+
             <div class="filters-container">
                 <div class="filter-group">
                     <label class="filter-label">Tags</label>
@@ -772,6 +689,13 @@
                 </div>
             </div>
         </div>
+
+            <div id="recents" style="display: none;">
+                <center>
+        <h3>Recent Bots</h3>
+        </center>
+        <div id="recents-cards"></div>
+    </div>
 
         <div id="cards">
         </div>
@@ -784,6 +708,13 @@
             "kiwis are birds and fruits?",
             "i feel like pablo when i see me with a kiwi",
             "a oddly lightweight kiwi",
+            "wake up mr west",
+            "soloing 4 projects at once",
+            "life advice: always stand on business",
+            "we eat kiwi but we don't eat kiwi. you'll never know which was the bird and which was the fruit",
+            "green is a pretty color",
+            "FIND GOD ¥$",
+            "marimari_en is a mf who loves truckin, fuckin but most importantly? cranking her hog"
         ]
 
         document.getElementById("wisdom").innerHTML = wisdom[Math.floor(Math.random() * wisdom.length)]
@@ -873,8 +804,9 @@
                     displayedBotIds.add(bot.id);
                     const card = document.createElement('div');
                     card.className = 'card';
+                    card.dataset.botId = bot.id; // Add bot ID for mobile touch handlers
                     card.onclick = (e) => {
-                        
+
                         if (e.target.classList.contains('bot-action-btn')) {
                             e.stopPropagation();
                             return;
@@ -908,6 +840,9 @@
                         return `<span class="${tagClass}">${tag}</span>`;
                     }).join('');
 
+                    const viewCount = typeof bot.views === 'number' ? bot.views : 0;
+                    const viewText = viewCount === 1 ? '1 view' : `${viewCount.toLocaleString()} views`;
+
                     card.innerHTML = `
                         ${botActions}
                         <img src="${bot.avatar || '/assets/general/noresponse.png'}" alt="Bot Avatar" class="avatar">
@@ -915,6 +850,7 @@
                         <span id="description">${bot.description}</span>
                         <div class="tags">${tagsHtml}</div>
                         <span id="author" onclick="window.location.href = '/profile/${bot.author}'">${bot.author}</span>
+                        <span id="views">${viewText}</span>
                     `;
                     cards.appendChild(card);
                 });
@@ -973,23 +909,157 @@
             loadBots({});
         });
 
-        
-        document.getElementById('search').addEventListener('input', reloadBots);
-        document.getElementById('tags').addEventListener('change', reloadBots);
 
-        
-        window.addEventListener('scroll', () => {
-            const search = document.getElementById('search').value;
-            const selectedTags = Array.from(document.getElementById('tags').selectedOptions).map(option => option.value);
-            if (!loading && (search || selectedTags.length > 0) === false && window.scrollY + window.innerHeight >= document.body.scrollHeight - 100) {
-                loadBots({});
+        const searchInput = document.getElementById('search');
+        const tagsSelect = document.getElementById('tags');
+
+        // Enhanced mobile input handling
+        searchInput.addEventListener('input', reloadBots);
+        searchInput.addEventListener('focus', () => {
+            if (window.innerWidth <= 768) {
+                // Scroll to search input on mobile when focused
+                setTimeout(() => {
+                    searchInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }, 100);
             }
         });
 
-        
+        tagsSelect.addEventListener('change', reloadBots);
+
+        // Enhanced mobile scroll handling with touch tracking
+        let isScrolling = false;
+        let touchStartY = 0;
+
+        document.addEventListener('touchstart', (e) => {
+            touchStartY = e.touches[0].clientY;
+        }, { passive: true });
+
+        document.addEventListener('touchmove', () => {
+            isScrolling = true;
+        }, { passive: true });
+
+        document.addEventListener('touchend', () => {
+            setTimeout(() => {
+                isScrolling = false;
+            }, 150);
+        }, { passive: true });
+
+        window.addEventListener('scroll', () => {
+            const search = searchInput.value;
+            const selectedTags = Array.from(tagsSelect.selectedOptions).map(option => option.value);
+
+            // Better infinite scroll detection for mobile
+            const threshold = window.innerWidth <= 768 ? 200 : 100;
+            const nearBottom = window.scrollY + window.innerHeight >= document.body.scrollHeight - threshold;
+
+            if (!loading && (search || selectedTags.length > 0) === false && nearBottom && !isScrolling) {
+                loadBots({});
+            }
+        }, { passive: true });
+
+        // Add touch feedback to cards
+        document.addEventListener('DOMContentLoaded', () => {
+            const observer = new MutationObserver((mutations) => {
+                mutations.forEach((mutation) => {
+                    mutation.addedNodes.forEach((node) => {
+                        if (node.nodeType === 1 && node.classList.contains('card')) {
+                            addCardTouchHandlers(node);
+                        }
+                    });
+                });
+            });
+
+            observer.observe(document.getElementById('cards'), {
+                childList: true
+            });
+        });
+
+        function addCardTouchHandlers(card) {
+            let touchStartTime = 0;
+            let touchMoved = false;
+
+            card.addEventListener('touchstart', (e) => {
+                touchStartTime = Date.now();
+                touchMoved = false;
+                if (window.innerWidth <= 768) {
+                    card.style.transform = 'translateY(-2px) scale(0.98)';
+                }
+            }, { passive: true });
+
+            card.addEventListener('touchmove', () => {
+                touchMoved = true;
+                if (window.innerWidth <= 768) {
+                    card.style.transform = '';
+                }
+            }, { passive: true });
+
+            card.addEventListener('touchend', (e) => {
+                if (window.innerWidth <= 768) {
+                    card.style.transform = '';
+                }
+
+                // Only trigger click if it was a tap (not a scroll)
+                const touchDuration = Date.now() - touchStartTime;
+                if (!touchMoved && touchDuration < 300) {
+                    const botId = card.dataset.botId;
+                    if (botId) {
+                        window.location.href = `/chat/${botId}`;
+                    }
+                }
+            }, { passive: true });
+        }
+
+
+        async function loadRecentBots() {
+            const authKey = localStorage.getItem('authKey');
+            const userId = localStorage.getItem('userId');
+            if (!authKey || !userId) {
+                return;
+            }
+            try {
+                const response = await fetch('/api/recent-bots', {
+                    headers: {
+                        'x-auth-key': authKey,
+                        'x-user-id': userId
+                    }
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    const container = document.getElementById('recents-cards');
+                    container.innerHTML = '';
+                    if (data.bots && data.bots.length > 0) {
+                        document.getElementById('recents').style.display = 'block';
+                        data.bots.forEach(bot => {
+                            const card = document.createElement('div');
+                            card.className = 'card';
+
+                            const viewCount = typeof bot.views === 'number' ? bot.views : 0;
+                            const viewText = viewCount === 1 ? '1 view' : `${viewCount.toLocaleString()} views`;
+
+                            card.innerHTML = `
+                                <img src="${bot.avatar || '/assets/general/noresponse.png'}" alt="${bot.name}" class="avatar">
+                                <div id="name">${bot.name}</div>
+                                <div id="description">${bot.description || 'No description available'}</div>
+                                <div id="author">${bot.author}</div>
+                                <div id="views">${viewText}</div>
+                            `;
+                            card.onclick = () => window.location.href = `/chat/${bot.id}`;
+                            container.appendChild(card);
+                        });
+                    } else {
+                        document.getElementById('recents').style.display = 'none';
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading recent bots:', error);
+            }
+        }
+
         fetchTags();
         loadBots();
+        loadRecentBots();
     </script>
-    
+
+    <script src="/assets/js/card.js"></script>
 </body>
 </html>

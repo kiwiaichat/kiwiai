@@ -1,618 +1,1235 @@
-const fastify = require('fastify')
-const path = require('path')
-const fs = require('fs')
-const crypto = require('crypto')
-const sharp = require('sharp')
-const { create } = require('domain')
-const app = fastify({ logger: false })
+const fastify = require("fastify");
+const path = require("path");
+const fs = require("fs");
+const crypto = require("crypto");
+const sharp = require("sharp");
+const app = fastify({ logger: false });
 
-// Tag usage tracking for sorting by frequency
-let tagUsage = {}
 
-// Function to update tag usage counts
-function updateTagUsage() {
-    const bots = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'bots.json'), 'utf-8'))
-    const counts = {}
-    Object.values(bots).forEach(bot => {
-        if (bot.tags) {
-            bot.tags.forEach(tag => {
-                counts[tag] = (counts[tag] || 0) + 1
-            })
-        }
-    })
-    tagUsage = counts
+const authAttempts = new Map(); 
+
+function checkRateLimit(ip) {
+  const now = Date.now();
+  const entry = authAttempts.get(ip) || {
+    attempts: 0,
+    lastAttempt: 0,
+    blocked: false,
+  };
+
+  
+  if (now - entry.lastAttempt > 15 * 60 * 1000) {
+    entry.attempts = 0;
+    entry.blocked = false;
+  }
+
+  
+  if (entry.attempts >= 5) {
+    entry.blocked = true;
+    authAttempts.set(ip, entry);
+    return false;
+  }
+
+  return true;
 }
 
-app.register(require('@fastify/static'), {
-  root: path.join(__dirname, 'public'),
-  prefix: '/'
-})
+function recordFailedAttempt(ip) {
+  const now = Date.now();
+  const entry = authAttempts.get(ip) || {
+    attempts: 0,
+    lastAttempt: 0,
+    blocked: false,
+  };
+  entry.attempts++;
+  entry.lastAttempt = now;
+  authAttempts.set(ip, entry);
+}
 
-app.register(require('@fastify/multipart'))
+function recordSuccessfulAuth(ip) {
+  
+  authAttempts.delete(ip);
+}
+
+
+function validateAndSanitizeInput(input, type, maxLength = 10000) {
+  if (typeof input !== "string") {
+    throw new Error("Input must be a string");
+  }
+
+  if (input.length > maxLength) {
+    throw new Error(`Input too long. Maximum length: ${maxLength}`);
+  }
+
+  
+  const sanitized = input.replace(/[<>'"]/g, "");
+
+  switch (type) {
+    case "username":
+      if (!/^[a-zA-Z0-9_-]+$/.test(sanitized)) {
+        throw new Error(
+          "Username can only contain alphanumeric characters, hyphens, and underscores"
+        );
+      }
+      if (sanitized.length < 3 || sanitized.length > 30) {
+        throw new Error("Username must be between 3 and 30 characters");
+      }
+      break;
+    case "text":
+      
+      break;
+    case "filename":
+      if (!/^[a-zA-Z0-9._-]+$/.test(sanitized)) {
+        throw new Error("Invalid filename");
+      }
+      break;
+  }
+
+  return sanitized;
+}
+
+
+let tagUsage = {};
+
+
+function updateTagUsage() {
+  const bots = JSON.parse(
+    fs.readFileSync(path.join(__dirname, "data", "bots.json"), "utf-8")
+  );
+  const counts = {};
+  Object.values(bots).forEach((bot) => {
+    if (bot.tags && Array.isArray(bot.tags)) {
+      bot.tags.forEach((tag) => {
+        counts[tag] = (counts[tag] || 0) + 1;
+      });
+    }
+  });
+  tagUsage = counts;
+}
+
+app.register(require("@fastify/static"), {
+  root: path.join(__dirname, "public"),
+  prefix: "/",
+});
+
+app.register(require("@fastify/multipart"));
 
 app.get("/profile/:profile", async (request, reply) => {
-    await reply.sendFile('profiles.html')
-})
+  await reply.sendFile("profiles.html");
+});
 
 app.get("/chat/:id", async (request, reply) => {
-    await reply.sendFile('chat.html')
-})
+  await reply.sendFile("chat.html");
+});
 
-app.get("/login" , async (request, reply) => {
-    await reply.sendFile('login.html')
-})
+app.get("/login", async (request, reply) => {
+  await reply.sendFile("login.html");
+});
 
 app.get("/maker", async (request, reply) => {
-    await reply.sendFile('maker.html')
-})
+  await reply.sendFile("maker.html");
+});
 
-app.get('/api/health', async (request, reply) => {
-  return { status: 'ok', timestamp: new Date().toISOString() }
-})
+app.get("/api/health", async (request, reply) => {
+  return { status: "ok", timestamp: new Date().toISOString() };
+});
 
-app.get('/api/profile/:profile', async (request, reply) => {
-    const profile = request.params.profile
-    const users = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'users.json'), 'utf-8'))
-    let user = null
-    let userId = null
-    for (const id in users) {
-        if (id === profile || users[id].name === profile) {
-            user = users[id]
-            userId = id
-            break
-        }
+app.get("/api/profile/:profile", async (request, reply) => {
+  const profile = request.params.profile;
+  const requestingUserId = request.headers["x-user-id"];
+  const users = JSON.parse(
+    fs.readFileSync(path.join(__dirname, "data", "users.json"), "utf-8")
+  );
+  let user = null;
+  let userId = null;
+  for (const id in users) {
+    if (id === profile || users[id].name === profile) {
+      user = users[id];
+      userId = id;
+      break;
     }
-    if (!user) {
-        return reply.code(404).send({ error: 'Profile not found' })
+  }
+  if (!user) {
+    return reply.code(404).send({ error: "Profile not found" });
+  }
+  const bots = JSON.parse(
+    fs.readFileSync(path.join(__dirname, "data", "bots.json"), "utf-8")
+  );
+  let userBots = user.bots.map((botId) => bots[botId]).filter(Boolean);
+
+  
+  const isOwnProfile = requestingUserId === userId;
+
+  
+  userBots = userBots.filter((bot) => {
+    
+    if (bot.status === "public") {
+      return true;
     }
-    const bots = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'bots.json'), 'utf-8'))
-    let userBots = user.bots.map(botId => bots[botId]).filter(Boolean)
-    // filter out sys_pmt item from bots, so none of them have the sys_pmt attribute
-    /* bots are in this format:
-    {
-    "name": "Koishi Komeiji",
-    "description": "koishi bot imported from jai for testing | og bot by  @MuyoMuyo3",
-    "author": "iusedtohavehoopdreams",
-    "status": "public",
-    "avatar": "/assets/bots/2.png",
-    "sys_pmt": "",
-    "chats": ""
-}
-    */
-    userBots = userBots.map(bot => ({ id: bot.id, ...Object.entries(bot).filter(([key]) => key !== 'sys_pmt').reduce((obj, [key, value]) => ({ ...obj, [key]: value }), {}) }))
-    return { ...user, id: userId, bots: userBots }
-})
-
-app.get('/api/tags', async (request, reply) => {
-    const bots = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'bots.json'), 'utf-8'))
-    const allTags = new Set()
-    Object.values(bots).forEach(bot => {
-        if (bot.tags) {
-            bot.tags.forEach(tag => allTags.add(tag))
-        }
-    })
-    const tagsArray = Array.from(allTags)
-    // Sort by usage count descending, then alphabetically for ties
-    tagsArray.sort((a, b) => {
-        const countA = tagUsage[a] || 0
-        const countB = tagUsage[b] || 0
-        if (countA !== countB) {
-            return countB - countA
-        }
-        return a.localeCompare(b)
-    })
-    return { tags: tagsArray }
-})
-
-app.get('/api/bots', async (request, reply) => {
-    const offset = parseInt(request.query.offset) || 0
-    const limit = parseInt(request.query.limit) || 20
-    const search = request.query.search || ''
-    const tags = request.query.tags ? request.query.tags.split(',').map(t => t.trim()) : []
-    const sortParam = request.query.sort
-    let field = 'name'
-    let direction = 'asc'
-    if (sortParam) {
-        const sortParts = sortParam.split('_')
-        field = sortParts[0] || 'name'
-        direction = sortParts[1] || 'asc'
+    
+    if (bot.status === "private") {
+      return (
+        isOwnProfile ||
+        (requestingUserId &&
+          users[requestingUserId] &&
+          bot.author === users[requestingUserId].name)
+      );
     }
+    return false;
+  });
 
-    const userId = request.headers['x-user-id']
-    const bots = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'bots.json'), 'utf-8'))
-    const users = userId ? JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'users.json'), 'utf-8')) : {}
-    let botIds = Object.keys(bots)
-
-    // Apply filters
-    botIds = botIds.filter(id => {
-        const bot = bots[id]
-
-        // Privacy filter - only show bots the user can access
-        if (!canAccessBot(bot, userId, users)) {
-            return false
-        }
-
-        // Search filter
-        if (search && !bot.name.toLowerCase().includes(search.toLowerCase()) && !bot.description.toLowerCase().includes(search.toLowerCase())) {
-            return false
-        }
-        // Tags filter
-        if (tags.length > 0) {
-            if (!bot.tags || !bot.tags.some(tag => tags.includes(tag))) {
-                return false
-            }
-        }
-        return true
-    })
-
-    // Apply sorting
-    botIds.sort((a, b) => {
-        const valA = bots[a][field]
-        const valB = bots[b][field]
-        if (direction === 'asc') {
-            return valA > valB ? 1 : -1
-        } else {
-            return valA < valB ? 1 : -1
-        }
-    })
-
-    // Apply pagination
-    const paginatedIds = botIds.slice(offset, offset + limit)
-    const botList = paginatedIds.map(id => ({ id, ...Object.entries(bots[id]).filter(([key]) => key !== 'sys_pmt').reduce((obj, [key, value]) => ({ ...obj, [key]: value }), {}) }))
-    return { bots: botList }
-})
-
-app.get('/api/bots/:id', async (request, reply) => {
-    const botId = request.params.id
-    const userId = request.headers['x-user-id']
-    const bots = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'bots.json'), 'utf-8'))
-    const users = userId ? JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'users.json'), 'utf-8')) : {}
-
-    if (!bots[botId]) {
-        return reply.code(404).send({ error: 'Bot not found' })
+  
+  userBots = userBots.map((bot) => {
+    
+    if (typeof bot.views !== "number") {
+      bot.views = 0;
     }
+    return {
+      id: bot.id,
+      ...Object.entries(bot)
+        .filter(([key]) => key !== "sys_pmt")
+        .reduce((obj, [key, value]) => ({ ...obj, [key]: value }), {}),
+    };
+  });
 
-    const bot = bots[botId]
+  
+  const safeUserData = {
+    name: user.name,
+    bots: userBots,
+    avatar: user.avatar,
+    bio: user.bio,
+  };
+
+  
+  if (isOwnProfile) {
+    safeUserData.conversations = user.conversations;
+    safeUserData.recentBots = user.recentBots;
+  }
+
+  return { ...safeUserData, id: userId };
+});
+
+app.get("/api/tags", async (request, reply) => {
+  const userId = request.headers["x-user-id"];
+  const bots = JSON.parse(
+    fs.readFileSync(path.join(__dirname, "data", "bots.json"), "utf-8")
+  );
+  const users = userId
+    ? JSON.parse(
+        fs.readFileSync(path.join(__dirname, "data", "users.json"), "utf-8")
+      )
+    : {};
+  const allTags = new Set();
+
+  Object.values(bots).forEach((bot) => {
+    
+    if (
+      canAccessBot(bot, userId, users) &&
+      bot.tags &&
+      Array.isArray(bot.tags)
+    ) {
+      bot.tags.forEach((tag) => allTags.add(tag));
+    }
+  });
+
+  const tagsArray = Array.from(allTags);
+  
+  tagsArray.sort((a, b) => {
+    const countA = tagUsage[a] || 0;
+    const countB = tagUsage[b] || 0;
+    if (countA !== countB) {
+      return countB - countA;
+    }
+    return a.localeCompare(b);
+  });
+  return { tags: tagsArray };
+});
+
+app.get("/api/bots", async (request, reply) => {
+  const offset = Math.max(0, parseInt(request.query.offset) || 0);
+  let limit = parseInt(request.query.limit) || 20;
+  limit = Math.min(limit, 100); 
+  const search = (request.query.search || "").toString().slice(0, 100); 
+  const tags = request.query.tags
+    ? request.query.tags
+        .split(",")
+        .map((t) => t.trim())
+        .filter((t) => t.length > 0)
+    : [];
+  const sortParam = (request.query.sort || "").toString();
+  let field = "name";
+  let direction = "asc";
+  if (sortParam) {
+    const sortParts = sortParam.split("_");
+    field = sortParts[0] || "name";
+    direction = sortParts[1] || "asc";
+  }
+  const allowedFields = ["name", "description", "author", "status"];
+  if (!allowedFields.includes(field)) {
+    field = "name";
+  }
+
+  const userId = request.headers["x-user-id"];
+  const bots = JSON.parse(
+    fs.readFileSync(path.join(__dirname, "data", "bots.json"), "utf-8")
+  );
+  const users = userId
+    ? JSON.parse(
+        fs.readFileSync(path.join(__dirname, "data", "users.json"), "utf-8")
+      )
+    : {};
+  let botIds = Object.keys(bots);
+
+  
+  botIds = botIds.filter((id) => {
+    const bot = bots[id];
+
+    
     if (!canAccessBot(bot, userId, users)) {
-        return reply.code(404).send({ error: 'Bot not found' })
+      return false;
     }
 
-    return { id: botId, ...bot }
-})
-
-app.put('/api/bots/:id', async (request, reply) => {
-    await auth_middleware(request, reply)
-
-    const botId = request.params.id
-    const userId = request.headers['x-user-id']
-
-    const bots = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'bots.json'), 'utf-8'))
-    const users = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'users.json'), 'utf-8'))
-
-    if (!bots[botId]) {
-        return reply.code(404).send({ error: 'Bot not found' })
-    }
-
-    if (bots[botId].author !== users[userId].name) {
-        return reply.code(403).send({ error: 'Unauthorized' })
-    }
-
-    const updatedData = { ...request.body }
-    delete updatedData.author // Prevent changing ownership
-    Object.assign(bots[botId], updatedData)
-
-    fs.writeFileSync(path.join(__dirname, 'data', 'bots.json'), JSON.stringify(bots, null, 2))
-    return { status: 'ok' }
-})
-
-app.delete('/api/bots/:id', async (request, reply) => {
-    await auth_middleware(request, reply)
-
-    const botId = request.params.id
-    const userId = request.headers['x-user-id']
-
-    const bots = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'bots.json'), 'utf-8'))
-    const users = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'users.json'), 'utf-8'))
-
-    if (!bots[botId]) {
-        return reply.code(404).send({ error: 'Bot not found' })
-    }
-
-    if (bots[botId].author !== users[userId].name) {
-        return reply.code(403).send({ error: 'Unauthorized' })
-    }
-
-    // Delete associated image files before removing the bot
-    deleteImageFile(bots[botId].avatar)
-
-    delete bots[botId]
-    fs.writeFileSync(path.join(__dirname, 'data', 'bots.json'), JSON.stringify(bots, null, 2))
-
-    users[userId].bots = users[userId].bots.filter(id => id != botId)
-    fs.writeFileSync(path.join(__dirname, 'data', 'users.json'), JSON.stringify(users, null, 2))
-
-    return { status: 'ok' }
-})
-
-app.post('/api/register', async (request, reply) => {
-    const { username, password } = request.body
-    if (!username || !password) {
-        return reply.code(400).send({ error: 'Username and password are required' })
-    }
-    const users = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'users.json'), 'utf-8'))
     
-    const existingUser = Object.values(users).find(user => user.name === username)
-    if (existingUser) {
-        return reply.code(409).send({ error: 'Username already exists' })
+    if (
+      search &&
+      !bot.name.toLowerCase().includes(search.toLowerCase()) &&
+      !bot.description.toLowerCase().includes(search.toLowerCase())
+    ) {
+      return false;
     }
     
-    const salt = crypto.randomBytes(16).toString('hex')
-    const hash = crypto.scryptSync(password, salt, 64).toString('hex')
-    
-    const key = crypto.randomBytes(64).toString('hex')
-    
-    const id = Object.keys(users).length.toString()
-    users[id] = {
-        name: username,
-        password: { salt, hash },
-        key: key,
-        bots: [],
-        conversations: [],
-        avatar: '/assets/users/default.png', 
-        bio: ''
+    if (tags.length > 0) {
+      if (
+        !bot.tags ||
+        !Array.isArray(bot.tags) ||
+        !bot.tags.some((tag) => tags.includes(tag))
+      ) {
+        return false;
+      }
     }
-    fs.writeFileSync(path.join(__dirname, 'data', 'users.json'), JSON.stringify(users, null, 2))
-    return { status: 'ok', userId: id, key: key }
-})
+    return true;
+  });
 
-app.post('/api/login', async (request, reply) => {
-    const { username, password } = request.body
-    if (!username || !password) {
-        return reply.code(400).send({ error: 'Username and password are required' })
+  
+  botIds.sort((a, b) => {
+    const valA = bots[a][field] || "";
+    const valB = bots[b][field] || "";
+    if (direction === "asc") {
+      return valA > valB ? 1 : -1;
+    } else {
+      return valA < valB ? 1 : -1;
     }
-    const users = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'users.json'), 'utf-8'))
+  });
+
+  
+  const paginatedIds = botIds.slice(offset, offset + limit);
+  const botList = paginatedIds.map((id) => {
+    const bot = bots[id];
     
-    let userId = null
-    let user = null
-    for (const id in users) {
-        if (users[id].name === username) {
-            userId = id
-            user = users[id]
-            break
-        }
+    if (typeof bot.views !== "number") {
+      bot.views = 0;
     }
-    if (!user) {
-        return reply.code(401).send({ error: 'Invalid username or password' })
+    return {
+      id,
+      ...Object.entries(bot)
+        .filter(([key]) => key !== "sys_pmt")
+        .reduce((obj, [key, value]) => ({ ...obj, [key]: value }), {}),
+    };
+  });
+  return { bots: botList };
+});
+
+app.get("/api/bots/:id", async (request, reply) => {
+  const botId = request.params.id;
+  const userId = request.headers["x-user-id"];
+  const bots = JSON.parse(
+    fs.readFileSync(path.join(__dirname, "data", "bots.json"), "utf-8")
+  );
+  const users = userId
+    ? JSON.parse(
+        fs.readFileSync(path.join(__dirname, "data", "users.json"), "utf-8")
+      )
+    : {};
+
+  if (!bots[botId]) {
+    return reply.code(404).send({ error: "Bot not found" });
+  }
+
+  const bot = bots[botId];
+  if (!canAccessBot(bot, userId, users)) {
+    return reply.code(404).send({ error: "Bot not found" });
+  }
+
+  
+  if (typeof bot.views !== "number") {
+    bot.views = 0;
+  }
+
+  const safeBot = {
+    id: botId,
+    ...Object.entries(bot)
+      .filter(([key]) => key !== "sys_pmt")
+      .reduce((obj, [key, value]) => ({ ...obj, [key]: value }), {}),
+  };
+  return safeBot;
+});
+
+app.put("/api/bots/:id", async (request, reply) => {
+  try {
+    await auth_middleware(request, reply);
+  } catch (e) {
+    return;
+  }
+
+  const botId = request.params.id;
+  const userId = request.headers["x-user-id"];
+
+  const bots = JSON.parse(
+    fs.readFileSync(path.join(__dirname, "data", "bots.json"), "utf-8")
+  );
+  const users = JSON.parse(
+    fs.readFileSync(path.join(__dirname, "data", "users.json"), "utf-8")
+  );
+
+  if (!bots[botId]) {
+    return reply.code(404).send({ error: "Bot not found" });
+  }
+
+  if (bots[botId].author !== users[userId].name) {
+    return reply.code(403).send({ error: "Unauthorized" });
+  }
+
+  const updatedData = { ...request.body };
+  delete updatedData.author; 
+  Object.assign(bots[botId], updatedData);
+
+  fs.writeFileSync(
+    path.join(__dirname, "data", "bots.json"),
+    JSON.stringify(bots, null, 2)
+  );
+  return { status: "ok" };
+});
+
+app.delete("/api/bots/:id", async (request, reply) => {
+  try {
+    await auth_middleware(request, reply);
+  } catch (e) {
+    return;
+  }
+
+  const botId = request.params.id;
+  const userId = request.headers["x-user-id"];
+
+  const bots = JSON.parse(
+    fs.readFileSync(path.join(__dirname, "data", "bots.json"), "utf-8")
+  );
+  const users = JSON.parse(
+    fs.readFileSync(path.join(__dirname, "data", "users.json"), "utf-8")
+  );
+
+  if (!bots[botId]) {
+    return reply.code(404).send({ error: "Bot not found" });
+  }
+
+  if (bots[botId].author !== users[userId].name) {
+    return reply.code(403).send({ error: "Unauthorized" });
+  }
+
+  
+  deleteImageFile(bots[botId].avatar);
+
+  delete bots[botId];
+  fs.writeFileSync(
+    path.join(__dirname, "data", "bots.json"),
+    JSON.stringify(bots, null, 2)
+  );
+
+  users[userId].bots = users[userId].bots.filter((id) => id !== botId);
+  fs.writeFileSync(
+    path.join(__dirname, "data", "users.json"),
+    JSON.stringify(users, null, 2)
+  );
+
+  return { status: "ok" };
+});
+
+app.post("/api/bots/:id/view", async (request, reply) => {
+  const botId = request.params.id;
+  const bots = JSON.parse(
+    fs.readFileSync(path.join(__dirname, "data", "bots.json"), "utf-8")
+  );
+
+  if (!bots[botId]) {
+    return reply.code(404).send({ error: "Bot not found" });
+  }
+
+  
+  if (typeof bots[botId].views !== "number") {
+    bots[botId].views = 0;
+  }
+
+  bots[botId].views++;
+  fs.writeFileSync(
+    path.join(__dirname, "data", "bots.json"),
+    JSON.stringify(bots, null, 2)
+  );
+
+  return { status: "ok", views: bots[botId].views };
+});
+
+app.post("/api/register", async (request, reply) => {
+  
+  if (!checkRateLimit(request.ip)) {
+    return reply
+      .code(429)
+      .send({
+        error: "Too many registration attempts. Please try again later.",
+      });
+  }
+
+  const { username, password } = request.body;
+  if (!username || !password) {
+    return reply
+      .code(400)
+      .send({ error: "Username and password are required" });
+  }
+
+  try {
+    const sanitizedUsername = validateAndSanitizeInput(username, "username");
+
+    if (password.length < 8) {
+      return reply
+        .code(400)
+        .send({ error: "Password must be at least 8 characters long" });
     }
-    
-    const { salt, hash } = user.password
-    const inputHash = crypto.scryptSync(password, salt, 64).toString('hex')
-    if (inputHash !== hash) {
-        return reply.code(401).send({ error: 'Invalid username or password' })
+    if (password.length > 128) {
+      return reply.code(400).send({ error: "Password too long" });
     }
-    return { status: 'ok', userId: userId, key: user.key }
-})
+  } catch (error) {
+    return reply.code(400).send({ error: error.message });
+  }
+  const users = JSON.parse(
+    fs.readFileSync(path.join(__dirname, "data", "users.json"), "utf-8")
+  );
+
+  const existingUser = Object.values(users).find(
+    (user) => user.name === sanitizedUsername
+  );
+  if (existingUser) {
+    recordFailedAttempt(request.ip);
+    return reply.code(409).send({ error: "Username already exists" });
+  }
+
+  const salt = crypto.randomBytes(32).toString("hex");
+  const hash = crypto
+    .scryptSync(password, salt, 64, { N: 16384, r: 8, p: 1 })
+    .toString("hex");
+
+  const key = crypto.randomBytes(64).toString("hex");
+
+  const id = Object.keys(users).length.toString();
+  const ipAddress = request.ip;
+
+  users[id] = {
+    name: sanitizedUsername,
+    password: { salt, hash },
+    ipAddress: ipAddress,
+    key: key,
+    bots: [],
+    conversations: [],
+    recentBots: [],
+    avatar: "/assets/users/default.png",
+    bio: "",
+  };
+  fs.writeFileSync(
+    path.join(__dirname, "data", "users.json"),
+    JSON.stringify(users, null, 2)
+  );
+
+  
+  recordSuccessfulAuth(request.ip);
+  return { status: "ok", userId: id, key: key };
+});
+
+app.post("/api/login", async (request, reply) => {
+  
+  if (!checkRateLimit(request.ip)) {
+    return reply
+      .code(429)
+      .send({ error: "Too many login attempts. Please try again later." });
+  }
+
+  const { username, password } = request.body;
+  if (!username || !password) {
+    return reply
+      .code(400)
+      .send({ error: "Username and password are required" });
+  }
+
+  let sanitizedUsername;
+  try {
+    sanitizedUsername = validateAndSanitizeInput(username, "username");
+    if (password.length > 128) {
+      return reply.code(400).send({ error: "Invalid username or password" });
+    }
+  } catch (error) {
+    return reply.code(400).send({ error: "Invalid username or password" });
+  }
+  const users = JSON.parse(
+    fs.readFileSync(path.join(__dirname, "data", "users.json"), "utf-8")
+  );
+
+  let userId = null;
+  let user = null;
+  for (const id in users) {
+    if (users[id].name === sanitizedUsername) {
+      userId = id;
+      user = users[id];
+      break;
+    }
+  }
+  if (!user) {
+    recordFailedAttempt(request.ip);
+    return reply.code(401).send({ error: "Invalid username or password" });
+  }
+
+  const { salt, hash } = user.password;
+  const inputHash = crypto
+    .scryptSync(password, salt, 64, { N: 16384, r: 8, p: 1 })
+    .toString("hex");
+  if (inputHash !== hash) {
+    recordFailedAttempt(request.ip);
+    return reply.code(401).send({ error: "Invalid username or password" });
+  }
+
+  
+  fs.writeFileSync(
+    path.join(__dirname, "data", "users.json"),
+    JSON.stringify(users, null, 2)
+  );
+
+  
+  recordSuccessfulAuth(request.ip);
+  return { status: "ok", userId: userId, key: user.key };
+});
 
 async function auth_middleware(request, reply) {
-    let key = request.headers['x-auth-key']
-    let id = request.headers['x-user-id']
+  let key = request.headers["x-auth-key"];
+  let id = request.headers["x-user-id"];
 
-    if (!key || !id) {
-        return reply.redirect('/login')
-    }
+  if (!key || !id) {
+    reply.code(401).send({ error: "Unauthorized" });
+    throw new Error("Auth failed");
+  }
 
-    let users = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'users.json'), 'utf-8'))
+  let users = JSON.parse(
+    fs.readFileSync(path.join(__dirname, "data", "users.json"), "utf-8")
+  );
 
-    if (!users[id] || users[id]['key'] !== key) {
-        return reply.redirect('/login')
-    }
+  if (!users[id] || users[id]["key"] !== key) {
+    reply.code(401).send({ error: "Unauthorized" });
+    throw new Error("Auth failed");
+  }
 
-    return { status: 'ok', timestamp: new Date().toISOString() }
+  return true;
 }
 
 function canAccessBot(bot, userId, users) {
-    if (bot.status === 'public') {
-        return true
-    }
-    if (!userId || !users[userId]) {
-        return false
-    }
-    return bot.author === users[userId].name
+  if (bot.status === "public") {
+    return true;
+  }
+  if (!userId || !users[userId]) {
+    return false;
+  }
+  return bot.author === users[userId].name;
 }
 
 async function optimizeAndSaveImage(base64Data, fileName) {
-    const buffer = Buffer.from(base64Data, 'base64')
+  
+  if (!base64Data || typeof base64Data !== "string") {
+    throw new Error("Invalid image data");
+  }
 
-    // Determine if we should save as WebP or PNG based on file extension
-    const useWebP = fileName.endsWith('.webp')
-    const finalFileName = useWebP ? fileName : fileName.replace(/\.(jpg|jpeg|gif|bmp)$/i, '.png')
-    const filePath = path.join(__dirname, 'public', 'assets', 'bots', finalFileName)
+  
+  const sizeInBytes = (base64Data.length * 3) / 4;
+  if (sizeInBytes > 5 * 1024 * 1024) {
+    throw new Error("Image too large. Maximum size: 5MB");
+  }
 
-    if (useWebP) {
-        // Save as WebP for better compression
-        await sharp(buffer)
-            .resize(512, 512, {
-                fit: 'inside',
-                withoutEnlargement: true
-            })
-            .webp({ quality: 80 })
-            .toFile(filePath)
-    } else {
-        // Save as PNG for compatibility
-        await sharp(buffer)
-            .resize(512, 512, {
-                fit: 'inside',
-                withoutEnlargement: true
-            })
-            .png({ compressionLevel: 9 })
-            .toFile(filePath)
+  const buffer = Buffer.from(base64Data, "base64");
+
+  
+  try {
+    const metadata = await sharp(buffer).metadata();
+    if (
+      !metadata.format ||
+      !["jpeg", "png", "webp", "gif", "bmp"].includes(metadata.format)
+    ) {
+      throw new Error("Invalid image format");
     }
+  } catch (error) {
+    throw new Error("Invalid image file");
+  }
 
-    return `/assets/bots/${finalFileName}`
+  
+  const useWebP = fileName.endsWith(".webp");
+  const finalFileName = useWebP
+    ? fileName
+    : fileName.replace(/\.(jpg|jpeg|gif|bmp)$/i, ".png");
+  const filePath = path.join(
+    __dirname,
+    "public",
+    "assets",
+    "bots",
+    finalFileName
+  );
+
+  if (useWebP) {
+    
+    await sharp(buffer)
+      .resize(512, 512, {
+        fit: "inside",
+        withoutEnlargement: true,
+      })
+      .webp({ quality: 80 })
+      .toFile(filePath);
+  } else {
+    
+    await sharp(buffer)
+      .resize(512, 512, {
+        fit: "inside",
+        withoutEnlargement: true,
+      })
+      .png({ compressionLevel: 9 })
+      .toFile(filePath);
+  }
+
+  return `/assets/bots/${finalFileName}`;
 }
 
 function deleteImageFile(avatarPath) {
-    if (avatarPath && avatarPath.startsWith('/assets/bots/')) {
-        const filePath = path.join(__dirname, 'public', avatarPath)
+  if (avatarPath && avatarPath.startsWith("/assets/bots/")) {
+    const filePath = path.join(__dirname, "public", avatarPath);
 
-        // Delete the single image file
-        try {
-            if (fs.existsSync(filePath)) {
-                fs.unlinkSync(filePath)
-            }
-        } catch (error) {
-            console.error('Error deleting image file:', error)
-        }
+    try {
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+    } catch (error) {
+      console.error("Error deleting image file:", error);
     }
+  }
 }
 
 async function optimizeAndSaveUserImage(base64Data, fileName) {
-    const buffer = Buffer.from(base64Data, 'base64')
+  
+  if (!base64Data || typeof base64Data !== "string") {
+    throw new Error("Invalid image data");
+  }
 
-    // Ensure users directory exists
-    const usersDir = path.join(__dirname, 'public', 'assets', 'users')
-    if (!fs.existsSync(usersDir)) {
-        fs.mkdirSync(usersDir, { recursive: true })
+  
+  const sizeInBytes = (base64Data.length * 3) / 4;
+  if (sizeInBytes > 2 * 1024 * 1024) {
+    throw new Error("Image too large. Maximum size: 2MB");
+  }
+
+  const buffer = Buffer.from(base64Data, "base64");
+
+  
+  try {
+    const metadata = await sharp(buffer).metadata();
+    if (
+      !metadata.format ||
+      !["jpeg", "png", "webp", "gif", "bmp"].includes(metadata.format)
+    ) {
+      throw new Error("Invalid image format");
     }
+  } catch (error) {
+    throw new Error("Invalid image file");
+  }
 
-    const filePath = path.join(usersDir, fileName)
+  
+  const usersDir = path.join(__dirname, "public", "assets", "users");
+  if (!fs.existsSync(usersDir)) {
+    fs.mkdirSync(usersDir, { recursive: true });
+  }
 
-    // Save as PNG for compatibility
-    await sharp(buffer)
-        .resize(200, 200, {
-            fit: 'cover',
-            position: 'center'
-        })
-        .png({ compressionLevel: 9 })
-        .toFile(filePath)
+  const filePath = path.join(usersDir, fileName);
 
-    return `/assets/users/${fileName}`
+  
+  await sharp(buffer)
+    .resize(200, 200, {
+      fit: "cover",
+      position: "center",
+    })
+    .png({ compressionLevel: 9 })
+    .toFile(filePath);
+
+  return `/assets/users/${fileName}`;
 }
 
 function deleteUserImageFile(avatarPath) {
-    if (avatarPath && avatarPath.startsWith('/assets/users/') && avatarPath !== '/assets/users/default.png') {
-        const filePath = path.join(__dirname, 'public', avatarPath)
+  if (
+    avatarPath &&
+    avatarPath.startsWith("/assets/users/") &&
+    avatarPath !== "/assets/users/default.png"
+  ) {
+    const filePath = path.join(__dirname, "public", avatarPath);
 
-        try {
-            if (fs.existsSync(filePath)) {
-                fs.unlinkSync(filePath)
-            }
-        } catch (error) {
-            console.error('Error deleting user image file:', error)
-        }
+    try {
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+    } catch (error) {
+      console.error("Error deleting user image file:", error);
     }
+  }
 }
 
 app.post("/api/upload-bot", async (request, reply) => {
-    await auth_middleware(request, reply)
+  try {
+    await auth_middleware(request, reply);
+  } catch (e) {
+    return;
+  }
 
-    const { name, description, author, status, avatar, sys_pmt, greeting, chats, tags } = request.body
-    if (!name || !description || !author || !status || !sys_pmt || !greeting) {
-        return reply.code(400).send({ error: 'All required fields must be filled' })
+  const { name, description, status, avatar, sys_pmt, greeting, chats, tags } =
+    request.body;
+  if (!name || !description || !status || !sys_pmt || !greeting) {
+    return reply
+      .code(400)
+      .send({ error: "All required fields must be filled" });
+  }
+
+  let sanitizedName,
+    sanitizedDescription,
+    sanitizedSysPmt,
+    sanitizedGreeting,
+    sanitizedChats,
+    sanitizedTags;
+
+  try {
+    sanitizedName = validateAndSanitizeInput(name, "text", 100);
+    sanitizedDescription = validateAndSanitizeInput(description, "text", 1000);
+    sanitizedSysPmt = validateAndSanitizeInput(sys_pmt, "text", 5000);
+    sanitizedGreeting = validateAndSanitizeInput(greeting, "text", 1000);
+    sanitizedChats = validateAndSanitizeInput(chats || "", "text", 5000);
+
+    sanitizedTags = [];
+    if (Array.isArray(tags)) {
+      sanitizedTags = tags
+        .filter((t) => typeof t === "string")
+        .map((t) => validateAndSanitizeInput(t.trim(), "text", 50))
+        .filter((t) => t.length > 0);
     }
-    const id = request.headers['x-user-id']
 
-    const bots = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'bots.json'), 'utf-8'))
-    const bot_id = Object.keys(bots).length
-
-    // Handle avatar
-    let avatarPath = '/assets/general/noresponse.png'
-    if (avatar && avatar.startsWith('data:image/')) {
-        // Decode base64, optimize and save
-        const base64Data = avatar.split(',')[1]
-
-        // Use PNG by default, or WebP if specified for better compression
-        const fileName = `${bot_id}.png`
-        avatarPath = await optimizeAndSaveImage(base64Data, fileName)
+    if (!["public", "private"].includes(status)) {
+      return reply.code(400).send({ error: "Invalid status value" });
     }
+  } catch (error) {
+    return reply.code(400).send({ error: error.message });
+  }
+  const id = request.headers["x-user-id"];
 
-    bots[bot_id] = { name, description, author, status, avatar: avatarPath, sys_pmt, greeting, chats, tags: tags || [] }
-    fs.writeFileSync(path.join(__dirname, 'data', 'bots.json'), JSON.stringify(bots))
+  const bots = JSON.parse(
+    fs.readFileSync(path.join(__dirname, "data", "bots.json"), "utf-8")
+  );
+  const users = JSON.parse(
+    fs.readFileSync(path.join(__dirname, "data", "users.json"), "utf-8")
+  );
+  const user = users[id];
+  const bot_id = Object.keys(bots).length.toString();
 
-    const users = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'users.json'), 'utf-8'))
-    users[id]['bots'].push(bot_id)
-    fs.writeFileSync(path.join(__dirname, 'data', 'users.json'), JSON.stringify(users))
+  
+  let avatarPath = "/assets/bots/noresponse.png";
+  if (avatar && avatar.startsWith("data:image/")) {
+    try {
+      
+      const base64Data = avatar.split(",")[1];
 
-    return { status: 'ok', timestamp: new Date().toISOString() }
-})
+      
+      const fileName = `${bot_id}.png`;
+      avatarPath = await optimizeAndSaveImage(base64Data, fileName);
+    } catch (error) {
+      return reply
+        .code(400)
+        .send({ error: `Avatar upload failed: ${error.message}` });
+    }
+  }
 
-app.get('/api/chats', async (request, reply) => {
-    await auth_middleware(request, reply)
+  bots[bot_id] = {
+    name: sanitizedName,
+    description: sanitizedDescription,
+    author: user.name,
+    status,
+    avatar: avatarPath,
+    sys_pmt: sanitizedSysPmt,
+    greeting: sanitizedGreeting,
+    chats: sanitizedChats,
+    tags: sanitizedTags,
+    views: 0,
+  };
+  fs.writeFileSync(
+    path.join(__dirname, "data", "bots.json"),
+    JSON.stringify(bots, null, 2)
+  );
 
-    const userId = request.headers['x-user-id']
-    const users = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'users.json'), 'utf-8'))
-    const userConversations = users[userId].conversations
+  users[id]["bots"].push(bot_id);
+  fs.writeFileSync(
+    path.join(__dirname, "data", "users.json"),
+    JSON.stringify(users, null, 2)
+  );
 
-    const conversations = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'conversations.json'), 'utf-8'))
-    const chats = {}
-    userConversations.forEach(id => {
-        if (conversations[id]) {
-            chats[id] = conversations[id]
+  updateTagUsage();
+
+  return { status: "ok", timestamp: new Date().toISOString() };
+});
+
+app.get("/api/chats", async (request, reply) => {
+  try {
+    await auth_middleware(request, reply);
+  } catch (e) {
+    return;
+  }
+
+  const userId = request.headers["x-user-id"];
+  const users = JSON.parse(
+    fs.readFileSync(path.join(__dirname, "data", "users.json"), "utf-8")
+  );
+  const userConversations = users[userId].conversations;
+
+  const conversations = JSON.parse(
+    fs.readFileSync(path.join(__dirname, "data", "conversations.json"), "utf-8")
+  );
+  const chats = {};
+  userConversations.forEach((id) => {
+    if (conversations[id]) {
+      chats[id] = conversations[id];
+    }
+  });
+
+  return { chats };
+});
+
+app.post("/api/chats", async (request, reply) => {
+  try {
+    await auth_middleware(request, reply);
+  } catch (e) {
+    return;
+  }
+
+  const { with: withUser, messages } = request.body;
+  if (!withUser || !messages || !Array.isArray(messages)) {
+    return reply
+      .code(400)
+      .send({
+        error: "with and messages are required; messages must be an array",
+      });
+  }
+  if (messages.length > 1000) {
+    
+    return reply.code(400).send({ error: "Too many messages" });
+  }
+  const userId = request.headers["x-user-id"];
+  const id = crypto.randomBytes(16).toString("hex");
+
+  const conversations = JSON.parse(
+    fs.readFileSync(path.join(__dirname, "data", "conversations.json"), "utf-8")
+  );
+  conversations[id] = {
+    id,
+    with: withUser,
+    messages,
+    createdAt: new Date().toISOString(),
+  };
+  fs.writeFileSync(
+    path.join(__dirname, "data", "conversations.json"),
+    JSON.stringify(conversations, null, 2)
+  );
+
+  const users = JSON.parse(
+    fs.readFileSync(path.join(__dirname, "data", "users.json"), "utf-8")
+  );
+  if (!users[userId].conversations.includes(id)) {
+    users[userId].conversations.push(id);
+    fs.writeFileSync(
+      path.join(__dirname, "data", "users.json"),
+      JSON.stringify(users, null, 2)
+    );
+  }
+
+  return { status: "ok", conversationId: id };
+});
+
+app.delete("/api/chats/:id", async (request, reply) => {
+  try {
+    await auth_middleware(request, reply);
+  } catch (e) {
+    return;
+  }
+
+  const conversationId = request.params.id;
+  const userId = request.headers["x-user-id"];
+
+  const conversations = JSON.parse(
+    fs.readFileSync(path.join(__dirname, "data", "conversations.json"), "utf-8")
+  );
+  if (!conversations[conversationId]) {
+    return reply.code(404).send({ error: "Conversation not found" });
+  }
+
+  const users = JSON.parse(
+    fs.readFileSync(path.join(__dirname, "data", "users.json"), "utf-8")
+  );
+  if (!users[userId].conversations.includes(conversationId)) {
+    return reply.code(403).send({ error: "Unauthorized" });
+  }
+
+  delete conversations[conversationId];
+  fs.writeFileSync(
+    path.join(__dirname, "data", "conversations.json"),
+    JSON.stringify(conversations, null, 2)
+  );
+
+  users[userId].conversations = users[userId].conversations.filter(
+    (id) => id !== conversationId
+  );
+  fs.writeFileSync(
+    path.join(__dirname, "data", "users.json"),
+    JSON.stringify(users, null, 2)
+  );
+
+  return { status: "ok" };
+});
+
+app.post("/api/log-bot-use", async (request, reply) => {
+  try {
+    await auth_middleware(request, reply);
+  } catch (e) {
+    return;
+  }
+
+  const { botId } = request.body;
+  if (!botId) {
+    return reply.code(400).send({ error: "botId is required" });
+  }
+  const userId = request.headers["x-user-id"];
+
+  const users = JSON.parse(
+    fs.readFileSync(path.join(__dirname, "data", "users.json"), "utf-8")
+  );
+  if (!users[userId].recentBots) {
+    users[userId].recentBots = [];
+  }
+  
+  users[userId].recentBots = users[userId].recentBots.filter(
+    (id) => id !== botId
+  );
+  users[userId].recentBots.unshift(botId);
+  
+  users[userId].recentBots = users[userId].recentBots.slice(0, 10);
+  fs.writeFileSync(
+    path.join(__dirname, "data", "users.json"),
+    JSON.stringify(users, null, 2)
+  );
+
+  return { status: "ok" };
+});
+
+app.get("/api/recent-bots", async (request, reply) => {
+  try {
+    await auth_middleware(request, reply);
+  } catch (e) {
+    return;
+  }
+
+  const userId = request.headers["x-user-id"];
+  const users = JSON.parse(
+    fs.readFileSync(path.join(__dirname, "data", "users.json"), "utf-8")
+  );
+  const bots = JSON.parse(
+    fs.readFileSync(path.join(__dirname, "data", "bots.json"), "utf-8")
+  );
+
+  const recentBots = (users[userId].recentBots || [])
+    .map((botId) => {
+      const bot = bots[botId];
+      if (bot) {
+        
+        if (typeof bot.views !== "number") {
+          bot.views = 0;
         }
+        return {
+          id: botId,
+          ...Object.entries(bot)
+            .filter(([key]) => key !== "sys_pmt")
+            .reduce((obj, [key, value]) => ({ ...obj, [key]: value }), {}),
+        };
+      }
+      return null;
     })
+    .filter(Boolean);
 
-    return { chats }
-})
+  return { bots: recentBots };
+});
 
-app.post('/api/chats', async (request, reply) => {
-    await auth_middleware(request, reply)
+app.put("/api/profile/update", async (request, reply) => {
+  try {
+    await auth_middleware(request, reply);
+  } catch (e) {
+    return;
+  }
 
-    const { id, with: withUser, messages } = request.body
-    if (!id || !withUser || !messages) {
-        return reply.code(400).send({ error: 'id, with, and messages are required' })
-    }
-    const userId = request.headers['x-user-id']
+  const userId = request.headers["x-user-id"];
+  const { bio, avatar } = request.body;
 
-    const conversations = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'conversations.json'), 'utf-8'))
-    conversations[id] = { id, with: withUser, messages, createdAt: new Date().toISOString() }
-    fs.writeFileSync(path.join(__dirname, 'data', 'conversations.json'), JSON.stringify(conversations, null, 2))
+  try {
+    const users = JSON.parse(
+      fs.readFileSync(path.join(__dirname, "data", "users.json"), "utf-8")
+    );
 
-    const users = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'users.json'), 'utf-8'))
-    if (!users[userId].conversations.includes(id)) {
-        users[userId].conversations.push(id)
-        fs.writeFileSync(path.join(__dirname, 'data', 'users.json'), JSON.stringify(users, null, 2))
-    }
-
-    return { status: 'ok', conversationId: id }
-})
-
-app.delete('/api/chats/:id', async (request, reply) => {
-    await auth_middleware(request, reply)
-
-    const conversationId = request.params.id
-    const userId = request.headers['x-user-id']
-
-    const conversations = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'conversations.json'), 'utf-8'))
-    if (!conversations[conversationId]) {
-        return reply.code(404).send({ error: 'Conversation not found' })
+    if (!users[userId]) {
+      return reply.code(404).send({ error: "User not found" });
     }
 
-    delete conversations[conversationId]
-    fs.writeFileSync(path.join(__dirname, 'data', 'conversations.json'), JSON.stringify(conversations, null, 2))
-
-    const users = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'users.json'), 'utf-8'))
-    users[userId].conversations = users[userId].conversations.filter(id => id !== conversationId)
-    fs.writeFileSync(path.join(__dirname, 'data', 'users.json'), JSON.stringify(users, null, 2))
-
-    return { status: 'ok' }
-})
-
-app.put('/api/profile/update', async (request, reply) => {
-    await auth_middleware(request, reply)
-
-    const userId = request.headers['x-user-id']
-    const { bio, avatar } = request.body
-
-    try {
-        const users = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'users.json'), 'utf-8'))
-
-        if (!users[userId]) {
-            return reply.code(404).send({ error: 'User not found' })
-        }
-
-        // Update bio if provided
-        if (bio !== undefined) {
-            users[userId].bio = bio
-        }
-
-        // Handle avatar update if provided
-        if (avatar && avatar.startsWith('data:image/')) {
-            // Delete old avatar if it's not the default
-            if (users[userId].avatar && users[userId].avatar !== '/assets/users/default.png') {
-                deleteUserImageFile(users[userId].avatar)
-            }
-
-            // Save new avatar
-            const base64Data = avatar.split(',')[1]
-            const fileName = `${userId}.png`
-            const avatarPath = await optimizeAndSaveUserImage(base64Data, fileName)
-            users[userId].avatar = avatarPath
-        }
-
-        // Save updated user data
-        fs.writeFileSync(path.join(__dirname, 'data', 'users.json'), JSON.stringify(users, null, 2))
-
-        return { status: 'ok', message: 'Profile updated successfully' }
-    } catch (error) {
-        console.error('Error updating profile:', error)
-        return reply.code(500).send({ error: 'Internal server error' })
+    
+    if (bio !== undefined) {
+      const sanitizedBio = validateAndSanitizeInput(bio, "text", 500);
+      users[userId].bio = sanitizedBio;
     }
-})
 
-app.delete('/api/delete-account', async (request, reply) => {
-    await auth_middleware(request, reply)
+    
+    if (avatar && avatar.startsWith("data:image/")) {
+      
+      if (
+        users[userId].avatar &&
+        users[userId].avatar !== "/assets/users/default.png"
+      ) {
+        deleteUserImageFile(users[userId].avatar);
+      }
 
-    const userId = request.headers['x-user-id']
-
-    try {
-        const users = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'users.json'), 'utf-8'))
-        const bots = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'bots.json'), 'utf-8'))
-        const conversations = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'conversations.json'), 'utf-8'))
-
-        if (!users[userId]) {
-            return reply.code(404).send({ error: 'User not found' })
-        }
-
-        const user = users[userId]
-
-        // Delete all user's bots and their images
-        if (user.bots) {
-            user.bots.forEach(botId => {
-                if (bots[botId]) {
-                    // Delete bot image files
-                    deleteImageFile(bots[botId].avatar)
-                    // Delete bot from bots.json
-                    delete bots[botId]
-                }
-            })
-        }
-
-        // Delete all user's conversations
-        if (user.conversations) {
-            user.conversations.forEach(conversationId => {
-                delete conversations[conversationId]
-            })
-        }
-
-        // Delete user account and avatar
-        deleteUserImageFile(user.avatar)
-        delete users[userId]
-
-        // Save updated data
-        fs.writeFileSync(path.join(__dirname, 'data', 'users.json'), JSON.stringify(users, null, 2))
-        fs.writeFileSync(path.join(__dirname, 'data', 'bots.json'), JSON.stringify(bots, null, 2))
-        fs.writeFileSync(path.join(__dirname, 'data', 'conversations.json'), JSON.stringify(conversations, null, 2))
-
-        return { status: 'ok', message: 'Account deleted successfully' }
-    } catch (error) {
-        console.error('Error deleting account:', error)
-        return reply.code(500).send({ error: 'Internal server error' })
+      
+      const base64Data = avatar.split(",")[1];
+      const fileName = `${userId}.png`;
+      const avatarPath = await optimizeAndSaveUserImage(base64Data, fileName);
+      users[userId].avatar = avatarPath;
     }
-})
+
+    
+    fs.writeFileSync(
+      path.join(__dirname, "data", "users.json"),
+      JSON.stringify(users, null, 2)
+    );
+
+    return { status: "ok", message: "Profile updated successfully" };
+  } catch (error) {
+    console.error("Error updating profile:", error);
+    return reply.code(500).send({ error: "Internal server error" });
+  }
+});
+
+app.delete("/api/delete-account", async (request, reply) => {
+  try {
+    await auth_middleware(request, reply);
+  } catch (e) {
+    return;
+  }
+
+  const userId = request.headers["x-user-id"];
+
+  try {
+    const users = JSON.parse(
+      fs.readFileSync(path.join(__dirname, "data", "users.json"), "utf-8")
+    );
+    const bots = JSON.parse(
+      fs.readFileSync(path.join(__dirname, "data", "bots.json"), "utf-8")
+    );
+    const conversations = JSON.parse(
+      fs.readFileSync(
+        path.join(__dirname, "data", "conversations.json"),
+        "utf-8"
+      )
+    );
+
+    if (!users[userId]) {
+      return reply.code(404).send({ error: "User not found" });
+    }
+
+    const user = users[userId];
+
+    
+    if (user.bots && Array.isArray(user.bots)) {
+      user.bots.forEach((botId) => {
+        if (bots[botId]) {
+          
+          deleteImageFile(bots[botId].avatar);
+          
+          delete bots[botId];
+        }
+      });
+    }
+
+    
+    if (user.conversations && Array.isArray(user.conversations)) {
+      user.conversations.forEach((conversationId) => {
+        delete conversations[conversationId];
+      });
+    }
+
+    
+    deleteUserImageFile(user.avatar);
+    delete users[userId];
+
+    
+    fs.writeFileSync(
+      path.join(__dirname, "data", "users.json"),
+      JSON.stringify(users, null, 2)
+    );
+    fs.writeFileSync(
+      path.join(__dirname, "data", "bots.json"),
+      JSON.stringify(bots, null, 2)
+    );
+    fs.writeFileSync(
+      path.join(__dirname, "data", "conversations.json"),
+      JSON.stringify(conversations, null, 2)
+    );
+
+    return { status: "ok", message: "Account deleted successfully" };
+  } catch (error) {
+    console.error("Error deleting account:", error);
+    return reply.code(500).send({ error: "Internal server error" });
+  }
+});
 
 app.setNotFoundHandler(async (request, reply) => {
-  const filePath = path.join(__dirname, 'public', request.url)
-  try {
-    await reply.sendFile(request.url, path.join(__dirname, 'public'))
-  } catch (err) {
-    reply.code(404).send({ error: 'Not Found' })
+  
+  const normalizedPath = path
+    .normalize(request.url)
+    .replace(/^(\.\.[\/\\])+/, "");
+  const safePath = path.join(__dirname, "public", normalizedPath);
+
+  
+  if (!safePath.startsWith(path.join(__dirname, "public"))) {
+    return reply.code(403).send({ error: "Access denied" });
   }
-})
+
+  try {
+    await reply.sendFile(normalizedPath, path.join(__dirname, "public"));
+  } catch (err) {
+    reply.code(404).send({ error: "Not Found" });
+  }
+});
 
 const start = async () => {
   try {
-    await app.listen({ port: 4000, host: '0.0.0.0' })
-    console.log(`Server is running on http://localhost:4000`)
+    await app.listen({ port: 4000, host: "0.0.0.0" });
+    
+    updateTagUsage();
 
-    // Initialize tag usage on startup
-    updateTagUsage()
-
-    // Update tag usage every hour
-    setInterval(updateTagUsage, 60 * 60 * 1000)
+    
+    setInterval(updateTagUsage, 60 * 60 * 1000);
   } catch (err) {
-    app.log.error(err)
-    process.exit(1)
+    app.log.error(err);
+    process.exit(1);
   }
-}
+};
 
-start()
+start();

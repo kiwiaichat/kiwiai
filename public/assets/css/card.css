@@ -1,0 +1,230 @@
+
+.card {
+    display: flex;
+    flex-direction: column;
+    padding: var(--spacing-lg);
+    background: linear-gradient(145deg, var(--color-bg-card), #3a3b3a);
+    border-radius: var(--spacing-md);
+    transition: all var(--transition-normal);
+    position: relative;
+    border: 1px solid rgba(150, 214, 150, 0.1);
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    height: 400px;
+    width: 300px;
+}
+
+.card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--color-primary), var(--color-primary-hover));
+    opacity: 0;
+    transition: var(--transition-normal);
+}
+
+.card:hover {
+    transform: translateY(-4px) scale(1.01);
+    cursor: pointer;
+    box-shadow: var(--shadow-lg);
+    border-color: var(--color-primary);
+}
+
+.card:hover::before {
+    opacity: 1;
+}
+
+.bot-actions {
+    position: absolute;
+    top: var(--spacing-md);
+    right: var(--spacing-md);
+    display: none;
+    gap: var(--spacing-sm);
+    z-index: 10;
+}
+
+.card:hover .bot-actions {
+    display: flex;
+}
+
+.bot-action-btn {
+    background-color: var(--color-primary);
+    color: var(--color-bg-main);
+    border: none;
+    padding: var(--spacing-sm) 8px;
+    border-radius: var(--border-radius-sm);
+    cursor: pointer;
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    transition: var(--transition-fast);
+    box-shadow: var(--shadow-sm);
+}
+
+.bot-action-btn:hover {
+    background-color: var(--color-primary-hover);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-md);
+}
+
+.bot-action-btn.delete {
+    background-color: var(--color-danger);
+}
+
+.bot-action-btn.delete:hover {
+    background-color: var(--color-danger-hover);
+}
+
+.card .avatar {
+    border-radius: var(--border-radius-lg);
+    margin-bottom: var(--spacing-lg);
+    width: 100%;
+    height: 200px;
+    object-fit: cover;
+    transition: var(--transition-normal);
+    flex-shrink: 0;
+}
+
+.card:hover .avatar {
+    transform: scale(1.02);
+}
+
+#name {
+    font-size: var(--font-size-xl);
+    font-weight: 700;
+    margin-bottom: var(--spacing-sm);
+    color: var(--color-white);
+}
+
+#description {
+    font-size: var(--font-size-base);
+    line-height: 1.6;
+    margin-bottom: var(--spacing-md);
+    opacity: 0.9;
+    flex-grow: 1;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+#author {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-accent);
+    cursor: pointer;
+    transition: var(--transition-fast);
+    font-weight: 500;
+}
+
+#author:hover {
+    color: var(--color-primary-hover);
+    text-decoration: underline;
+}
+
+#views {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+    text-align: center;
+    opacity: 0.7;
+    margin-top: var(--spacing-xs);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+}
+
+#views::before {
+    content: '👁';
+    font-size: 10px;
+}
+
+/* Focus states */
+.card:focus,
+.bot-action-btn:focus {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+}
+
+/* Loading state */
+.card.loading {
+    background: linear-gradient(
+        90deg,
+        var(--color-bg-card) 25%,
+        rgba(150, 214, 150, 0.1) 50%,
+        var(--color-bg-card) 75%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+    0% {
+        background-position: -200% 0;
+    }
+    100% {
+        background-position: 200% 0;
+    }
+}
+
+/* Responsive design - from index.html media queries */
+@media (max-width: 1200px) {
+    .card {
+        width: 100%;
+        max-width: calc(50vw - 20px);
+        margin: 8px;
+        height: 360px;
+    }
+
+    .bot-actions {
+        top: 5px;
+        right: 5px;
+        gap: 3px;
+    }
+
+    .bot-action-btn {
+        padding: 3px 6px;
+        font-size: 11px;
+    }
+
+    .card .avatar {
+        width: 100%;
+        height: 200px;
+        object-fit: cover;
+    }
+}
+
+@media (max-width: 768px) {
+    .card {
+        margin: 5px;
+        padding: 8px;
+        height: 320px;
+        max-width: calc(50vw - 15px);
+    }
+
+    #name {
+        font-size: 15px;
+    }
+
+    #description {
+        font-size: 12px;
+        -webkit-line-clamp: 3;
+        display: -webkit-box !important;
+        -webkit-box-orient: vertical !important;
+        overflow: hidden !important;
+    }
+
+    .card .avatar {
+        height: 150px;
+    }
+}
+
+/* High contrast mode */
+@media (prefers-contrast: high) {
+    .card {
+        border: 2px solid var(--color-primary);
+    }
+}

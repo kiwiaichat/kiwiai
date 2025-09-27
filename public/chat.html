@@ -98,6 +98,8 @@
             z-index: 15;
             padding: 8px;
             border-radius: 6px;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
         }
 
         .hamburger-menu:hover {
@@ -382,10 +384,9 @@
         
         .message-bubble em {
             font-style: italic;
-            opacity: 0.75;
-            color: rgba(204, 218, 206, 0.75);
+            opacity: 1;
+            color: rgba(204, 218, 206, 1);
         }
-
         .message-bot .message-bubble em {
             color: rgba(150, 214, 150, 0.75);
         }
@@ -623,6 +624,9 @@
             font-size: 14px;
             transition: all 0.2s ease;
             outline: none;
+            -webkit-appearance: none;
+            -webkit-user-select: text;
+            user-select: text;
         }
 
         #chat-input:focus {
@@ -649,6 +653,8 @@
             transition: all 0.2s ease;
             border: none;
             outline: none;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
         }
 
         #extension:hover {
@@ -769,7 +775,7 @@
                 width: 75%;
                 padding: 12px 16px;
                 height: 45px;
-                font-size: 13px;
+                font-size: 16px;
             }
 
             #extension {
@@ -880,7 +886,7 @@
                 width: 70%;
                 padding: 10px 12px;
                 height: 40px;
-                font-size: 12px;
+                font-size: 16px;
                 border-top-left-radius: 10px;
                 border-bottom-left-radius: 10px;
             }
@@ -1324,41 +1330,109 @@
         function setupScrollTracking() {
             const messagesDiv = document.getElementById('messages');
 
+            // Enhanced mobile scroll handling
+            let touchStartY = 0;
+            let touchEndY = 0;
+            let isTouching = false;
+
+            messagesDiv.addEventListener('touchstart', (e) => {
+                touchStartY = e.touches[0].clientY;
+                isTouching = true;
+            }, { passive: true });
+
+            messagesDiv.addEventListener('touchmove', (e) => {
+                if (!isTouching) return;
+                touchEndY = e.touches[0].clientY;
+
+                // Improve scroll momentum on mobile
+                if (Math.abs(touchEndY - touchStartY) > 10) {
+                    userHasScrolled = true;
+                }
+            }, { passive: true });
+
+            messagesDiv.addEventListener('touchend', () => {
+                isTouching = false;
+                // Reset scroll tracking after touch ends with delay
+                if (isUserNearBottom(50)) {
+                    setTimeout(() => {
+                        userHasScrolled = false;
+                    }, 1500);
+                }
+            }, { passive: true });
+
             messagesDiv.addEventListener('scroll', () => {
-                
+
                 if (isAutoScrolling) return;
 
                 const currentPosition = messagesDiv.scrollTop;
 
-                
+
                 if (scrollTimeout) {
                     clearTimeout(scrollTimeout);
                 }
 
-                
+
                 if (Math.abs(currentPosition - lastScrollPosition) > 5) {
                     userHasScrolled = true;
                 }
 
-                
+
                 if (isUserNearBottom(50)) {
                     scrollTimeout = setTimeout(() => {
                         userHasScrolled = false;
-                    }, 1000);
+                    }, isTouching ? 1500 : 1000);
                 }
 
                 lastScrollPosition = currentPosition;
-            });
+            }, { passive: true });
 
-            
-            document.getElementById('chat-input').addEventListener('keypress', (e) => {
+
+            const chatInput = document.getElementById('chat-input');
+
+            chatInput.addEventListener('keypress', (e) => {
                 if (e.key === 'Enter') {
+                    e.preventDefault();
                     userHasScrolled = false;
                     sendMessage();
                 }
             });
 
-            document.getElementById('extension').addEventListener('click', () => {
+            // Add mobile-specific input handling
+            chatInput.addEventListener('input', () => {
+                // Auto-resize on mobile for better UX
+                if (window.innerWidth <= 768) {
+                    chatInput.style.height = 'auto';
+                    chatInput.style.height = Math.min(chatInput.scrollHeight, 120) + 'px';
+                }
+            });
+
+            // Handle virtual keyboard on mobile
+            if ('visualViewport' in window) {
+                window.visualViewport.addEventListener('resize', () => {
+                    const chatControls = document.getElementById('chat-controls');
+                    if (window.visualViewport.height < window.innerHeight * 0.7) {
+                        chatControls.style.bottom = '10px';
+                    } else {
+                        chatControls.style.bottom = '20px';
+                    }
+                });
+            }
+
+            const extensionBtn = document.getElementById('extension');
+            extensionBtn.addEventListener('click', () => {
+                userHasScrolled = false;
+                sendMessage();
+            });
+
+            // Add touch feedback for mobile
+            extensionBtn.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                extensionBtn.style.transform = 'scale(0.95)';
+            });
+
+            extensionBtn.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                extensionBtn.style.transform = 'scale(1)';
                 userHasScrolled = false;
                 sendMessage();
             });
@@ -1419,6 +1493,30 @@
                     showToast('Error loading data. Please report this issue.', 'error');
                     
                 }, 1000);
+            }
+
+            // Log bot usage
+            if (api.userId && botId) {
+                fetch('/api/log-bot-use', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-auth-key': localStorage.getItem('authKey'),
+                        'x-user-id': api.userId
+                    },
+                    body: JSON.stringify({ botId })
+                }).catch(console.error);
+            }
+
+            // Increment bot view count
+            if (botId) {
+                fetch(`/api/bots/${botId}/view`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({})
+                }).catch(console.error);
             }
         }
 
@@ -1731,7 +1829,7 @@
             if (result.action !== 'clear') return;
 
             messages = [
-                { role: 'user', content: '.', timestamp: new Date().toISOString() },
+                { role: 'user', content: '(OOC: Give your greeting )', timestamp: new Date().toISOString() },
                 { role: 'assistant', content: currentBot.greeting, timestamp: new Date().toISOString() }
             ];
 

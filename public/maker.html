@@ -46,6 +46,8 @@
             border-radius: 5px;
             cursor: pointer;
             font-size: 16px;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
         }
 
         #auth-btn:hover {
@@ -81,6 +83,9 @@
             background-color: #565756;
             color: rgb(204, 218, 206);
             font-size: 16px;
+            -webkit-appearance: none;
+            -webkit-user-select: text;
+            user-select: text;
         }
 
         .input-field::placeholder {
@@ -100,10 +105,100 @@
             color: #060806;
             font-size: 16px;
             cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
         }
 
         .submit-btn:hover {
             background-color: #7abf7a;
+        }
+
+
+        @media (max-width: 768px) {
+            #nav {
+                padding: 8px 15px;
+                flex-wrap: wrap;
+            }
+
+            #title {
+                font-size: 18px;
+                margin-left: 10px;
+            }
+
+            #auth-btn {
+                padding: 8px 16px;
+                font-size: 14px;
+            }
+
+            #maker-container {
+                padding: 20px 15px;
+                align-items: flex-start;
+            }
+
+            #maker-form {
+                width: 100%;
+                max-width: 400px;
+                padding: 20px;
+                margin: 0;
+                box-sizing: border-box;
+            }
+
+            .input-field {
+                padding: 12px;
+                font-size: 16px;
+            }
+
+            textarea.input-field {
+                min-height: 80px;
+            }
+
+            .submit-btn {
+                padding: 12px;
+                font-size: 16px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            #nav {
+                padding: 6px 10px;
+            }
+
+            #title {
+                font-size: 16px;
+                margin-left: 5px;
+            }
+
+            #auth-btn {
+                padding: 6px 12px;
+                font-size: 12px;
+            }
+
+            #maker-container {
+                padding: 15px 10px;
+            }
+
+            #maker-form {
+                padding: 15px;
+                gap: 15px;
+            }
+
+            #maker-form h2 {
+                font-size: 20px;
+            }
+
+            .input-field {
+                padding: 10px;
+                font-size: 14px;
+            }
+
+            textarea.input-field {
+                min-height: 70px;
+            }
+
+            .submit-btn {
+                padding: 10px;
+                font-size: 14px;
+            }
         }
     </style>
     <script src="assets/js/api.js"></script>
@@ -127,7 +222,7 @@
                 </select>
                 <input type="text" id="tags" name="tags" class="input-field" placeholder="Tags (comma-separated)">
                 <input type="file" id="avatar" name="avatar" class="input-field" accept="image/*" required>
-                <textarea id="sys_pmt" name="sys_pmt" class="input-field" placeholder="System Prompt" required></textarea>
+                <textarea id="sys_pmt" name="sys_pmt" class="input-field" placeholder="System Prompt / Character Definition" required></textarea>
                 <textarea type="text" id="greeting" name="greeting" class="input-field" placeholder="Greeting Message" required></textarea>
                 <button type="submit" class="submit-btn">Create Bot</button>
             </form>
@@ -155,11 +250,50 @@
             alert('You must be logged in to create a bot.');
             window.location.href = '/login';
         } else {
+
             fetch(`/api/profile/${userId}`)
                 .then(response => response.json())
                 .then(data => {
                     if (data.name) {
                         username = data.name;
+
+                        // Move edit logic here after username is loaded
+                        const urlParams = new URLSearchParams(window.location.search);
+                        const editParam = urlParams.get('edit');
+                        if (editParam) {
+                            editingBotId = editParam;
+                            api.getBot(editingBotId).then(bot => {
+                                if (bot.author !== username) {
+                                    alert('You do not own this bot.');
+                                    window.location.href = '/';
+                                    return;
+                                }
+                                botData = bot;
+
+                                document.getElementById('name').value = bot.name;
+                                document.getElementById('description').value = bot.description;
+                                document.getElementById('status').value = bot.status;
+                                document.getElementById('tags').value = bot.tags ? bot.tags.join(', ') : '';
+                                document.getElementById('sys_pmt').value = bot.sys_pmt;
+                                document.getElementById('greeting').value = bot.greeting;
+
+                                document.querySelector('#maker-form h2').textContent = 'Edit Bot';
+
+                                document.querySelector('#maker-form button[type="submit"]').textContent = 'Update Bot';
+
+                                const deleteBtn = document.createElement('button');
+                                deleteBtn.type = 'button';
+                                deleteBtn.className = 'submit-btn';
+                                deleteBtn.textContent = 'Delete Bot';
+                                deleteBtn.style.backgroundColor = '#d69696';
+                                deleteBtn.onclick = () => deleteBot(editingBotId);
+                                document.getElementById('maker-form').appendChild(deleteBtn);
+                            }).catch(error => {
+                                console.error(error);
+                                alert('Failed to load bot.');
+                                window.location.href = '/';
+                            });
+                        }
                     } else {
                         alert('Failed to load user data.');
                     }
@@ -170,41 +304,45 @@
                 });
         }
 
-        
-        const urlParams = new URLSearchParams(window.location.search);
-        const editParam = urlParams.get('edit');
-        if (editParam) {
-            editingBotId = editParam;
-            api.getBot(editingBotId).then(bot => {
-                if (bot.author !== username) {
-                    alert('You do not own this bot.');
-                    window.location.href = '/';
+        function resizeImage(file, maxWidth, maxHeight) {
+            return new Promise((resolve, reject) => {
+                // Check file size first (5MB limit)
+                if (file.size > 5 * 1024 * 1024) {
+                    reject(new Error('Image too large. Maximum size: 5MB'));
                     return;
                 }
-                botData = bot;
-                
-                document.getElementById('name').value = bot.name;
-                document.getElementById('description').value = bot.description;
-                document.getElementById('status').value = bot.status;
-                document.getElementById('tags').value = bot.tags ? bot.tags.join(', ') : '';
-                document.getElementById('sys_pmt').value = bot.sys_pmt;
-                document.getElementById('greeting').value = bot.greeting;
-                
-                document.querySelector('#maker-form h2').textContent = 'Edit Bot';
-                
-                document.querySelector('#maker-form button[type="submit"]').textContent = 'Update Bot';
-                
-                const deleteBtn = document.createElement('button');
-                deleteBtn.type = 'button';
-                deleteBtn.className = 'submit-btn';
-                deleteBtn.textContent = 'Delete Bot';
-                deleteBtn.style.backgroundColor = '#d69696';
-                deleteBtn.onclick = () => deleteBot(editingBotId);
-                document.getElementById('maker-form').appendChild(deleteBtn);
-            }).catch(error => {
-                console.error(error);
-                alert('Failed to load bot.');
-                window.location.href = '/';
+
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                const img = new Image();
+
+                img.onload = function() {
+                    // Calculate new dimensions while maintaining aspect ratio
+                    let { width, height } = img;
+
+                    if (width > maxWidth || height > maxHeight) {
+                        const ratio = Math.min(maxWidth / width, maxHeight / height);
+                        width *= ratio;
+                        height *= ratio;
+                    }
+
+                    canvas.width = width;
+                    canvas.height = height;
+
+                    // Draw and resize the image
+                    ctx.drawImage(img, 0, 0, width, height);
+
+                    // Convert to data URL with high quality
+                    const dataURL = canvas.toDataURL('image/png', 0.9);
+                    resolve(dataURL);
+                };
+
+                img.onerror = function() {
+                    reject(new Error('Invalid image file'));
+                };
+
+                // Create object URL for the image
+                img.src = URL.createObjectURL(file);
             });
         }
 
@@ -216,12 +354,12 @@
             }
             const avatarInput = document.getElementById('avatar');
             if (avatarInput.files[0]) {
-                const reader = new FileReader();
-                reader.onload = () => {
-                    const avatarData = reader.result;
-                    submitForm(avatarData);
-                };
-                reader.readAsDataURL(avatarInput.files[0]);
+                try {
+                    const resizedImage = await resizeImage(avatarInput.files[0], 512, 512);
+                    submitForm(resizedImage);
+                } catch (error) {
+                    alert('Error processing image: ' + error.message);
+                }
             } else {
                 submitForm('');
             }
