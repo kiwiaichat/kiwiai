@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "WebFetch(domain:docs.puter.com)",
+      "WebFetch(domain:developer.puter.com)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

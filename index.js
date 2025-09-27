@@ -3,10 +3,16 @@ const path = require("path");
 const fs = require("fs");
 const crypto = require("crypto");
 const sharp = require("sharp");
+const { HttpsProxyAgent } = require('https-proxy-agent');
 const app = fastify({ logger: false });
 
 
-const authAttempts = new Map(); 
+const authAttempts = new Map();
+
+// Proxy cache for lorebook fetching
+let proxyList = [];
+let proxyLastFetched = 0;
+const PROXY_CACHE_DURATION = 10 * 60 * 1000; // 10 minutes
 
 function checkRateLimit(ip) {
   const now = Date.now();
@@ -105,6 +111,330 @@ function updateTagUsage() {
   tagUsage = counts;
 }
 
+// Fetch and cache proxy list
+async function fetchProxyList() {
+  const now = Date.now();
+  if (proxyList.length > 0 && (now - proxyLastFetched) < PROXY_CACHE_DURATION) {
+    return proxyList;
+  }
+
+  try {
+    const response = await fetch('https://proxylist.geonode.com/api/proxy-list?limit=500&page=1&sort_by=lastChecked&sort_type=desc');
+    const data = await response.json();
+
+    // Filter for working HTTP proxies with good uptime
+    proxyList = data.data
+      .filter(proxy =>
+        proxy.protocols.includes('http') &&
+        proxy.upTime >= 80 &&
+        proxy.speed > 100 &&
+        proxy.anonymityLevel === 'elite'
+      )
+      .slice(0, 20); // Keep top 20 proxies
+
+    proxyLastFetched = now;
+    console.log(`Fetched ${proxyList.length} working proxies`);
+    return proxyList;
+  } catch (error) {
+    console.error('Failed to fetch proxy list:', error);
+    return proxyList; // Return cached list if available
+  }
+}
+
+// Lorebook proxy endpoint
+app.post('/api/lorebook-fetch', async (request, reply) => {
+   try {
+     await auth_middleware(request, reply);
+   } catch (e) {
+     return;
+   }
+
+   const { url } = request.body;
+   if (!url || typeof url !== 'string') {
+     return reply.code(400).send({ error: 'URL is required' });
+   }
+
+   // Validate URL
+   try {
+     new URL(url);
+   } catch {
+     return reply.code(400).send({ error: 'Invalid URL' });
+   }
+
+   console.log('Fetching lorebook content from:', url);
+
+   // Try direct fetch first
+   try {
+     const response = await fetch(url, {
+       headers: {
+         'User-Agent': 'KiwiAI-Lorebook/1.0',
+         'Accept': 'text/html,application/xhtml+xml,application/xml,text/plain,application/json'
+       },
+       timeout: 10000
+     });
+
+     if (response.ok) {
+       const content = await response.text();
+       const contentType = response.headers.get('content-type') || '';
+       return {
+         content,
+         contentType,
+         method: 'direct'
+       };
+     }
+   } catch (directError) {
+     console.log('Direct fetch failed, trying proxies:', directError.message);
+   }
+
+   // If direct fetch fails, try proxies
+   const proxies = await fetchProxyList();
+
+   for (const proxy of proxies.slice(0, 5)) { // Try top 5 proxies
+     try {
+       const proxyUrl = `http://${proxy.ip}:${proxy.port}`;
+       console.log(`Trying proxy: ${proxyUrl}`);
+
+       // Create proxy agent
+       const agent = new HttpsProxyAgent(proxyUrl);
+
+       const response = await fetch(url, {
+         agent: agent,
+         headers: {
+           'User-Agent': 'KiwiAI-Lorebook/1.0',
+           'Accept': 'text/html,application/xhtml+xml,application/xml,text/plain,application/json'
+         },
+         signal: AbortSignal.timeout(8000)
+       });
+
+       if (response.ok) {
+         const content = await response.text();
+         const contentType = response.headers.get('content-type') || '';
+         console.log(`Successfully fetched via proxy: ${proxyUrl}`);
+         return {
+           content,
+           contentType,
+           method: 'proxy',
+           proxy: proxyUrl
+         };
+       }
+     } catch (proxyError) {
+       console.log(`Proxy ${proxy.ip}:${proxy.port} failed:`, proxyError.message);
+       continue;
+     }
+   }
+
+   return reply.code(500).send({
+     error: 'Failed to fetch content via direct connection or proxies',
+     attempted: proxies.length > 0 ? 'direct + proxy' : 'direct only'
+   });
+ });
+
+// AI-powered message enhancement endpoint
+app.post('/api/enhance-message', async (request, reply) => {
+  try {
+    await auth_middleware(request, reply);
+  } catch (e) {
+    return;
+  }
+
+  const { message, context, enhancementType = 'improve' } = request.body;
+
+  if (!message || typeof message !== 'string') {
+    return reply.code(400).send({ error: 'Message is required' });
+  }
+
+  if (message.trim().length === 0) {
+    return reply.code(400).send({ error: 'Message cannot be empty' });
+  }
+
+  console.log('Enhancing message:', message.substring(0, 100) + '...');
+
+  // Get user settings for AI
+  const userId = request.headers['x-user-id'];
+  const users = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'users.json'), 'utf-8'));
+  const user = users[userId];
+
+  let systemPrompt = '';
+  switch (enhancementType) {
+    case 'improve':
+      systemPrompt = `You are an expert writing assistant. Improve the following message by making it more clear, engaging, and well-written while preserving the original meaning and intent. Fix any grammatical errors, improve sentence structure, and make the language more polished and professional. Only return the improved message, no explanations.`;
+      break;
+    case 'formal':
+      systemPrompt = `You are a professional writing assistant. Rewrite the following message in a more formal, professional tone while preserving the original meaning. Use proper grammar, eliminate contractions, and make the language more sophisticated. Only return the rewritten message, no explanations.`;
+      break;
+    case 'casual':
+      systemPrompt = `You are a friendly writing assistant. Rewrite the following message in a more casual, conversational tone while preserving the original meaning. Use contractions, simpler language, and a friendly voice. Only return the rewritten message, no explanations.`;
+      break;
+    case 'expand':
+      systemPrompt = `You are a writing assistant. Expand the following message by adding more detail, examples, and elaboration while preserving the core meaning. Make it more comprehensive and informative. Only return the expanded message, no explanations.`;
+      break;
+    case 'summarize':
+      systemPrompt = `You are a writing assistant. Summarize the following message by making it more concise while preserving the key points and main ideas. Remove unnecessary details but keep all important information. Only return the summarized message, no explanations.`;
+      break;
+    default:
+      systemPrompt = `You are a writing assistant. Improve the following message by making it clearer and more engaging while preserving the original meaning. Only return the improved message, no explanations.`;
+  }
+
+  try {
+    const aiProvider = user ? (user.aiProvider || 'https://text.pollinations.ai/openai') : 'https://text.pollinations.ai/openai';
+    const apiKey = user ? (user.apiKey || '') : '';
+    const model = user ? (user.aiModel || 'mistral') : 'mistral';
+
+    const headers = {
+      'Content-Type': 'application/json'
+    };
+
+    if (apiKey) {
+      headers['Authorization'] = `Bearer ${apiKey}`;
+    }
+
+    const messages = [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: message }
+    ];
+
+    if (context && context.trim()) {
+      messages.splice(1, 0, { role: 'assistant', content: `Context: ${context}` });
+    }
+
+    const response = await fetch(aiProvider, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        model: model,
+        messages: messages,
+        max_tokens: 1000,
+        temperature: 0.7
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`AI API Error: ${response.status} ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    const enhancedMessage = data.choices[0].message.content.trim();
+
+    return {
+      original: message,
+      enhanced: enhancedMessage,
+      enhancementType: enhancementType
+    };
+
+  } catch (error) {
+    console.error('Error enhancing message:', error);
+    return reply.code(500).send({
+      error: 'Failed to enhance message',
+      details: error.message
+    });
+  }
+});
+
+// AI-powered message creation endpoint
+app.post('/api/create-message', async (request, reply) => {
+  try {
+    await auth_middleware(request, reply);
+  } catch (e) {
+    return;
+  }
+
+  const { context, messageType = 'reply', botPersonality, style = 'natural' } = request.body;
+
+  if (!context || typeof context !== 'string' || context.trim().length === 0) {
+    return reply.code(400).send({ error: 'Context is required' });
+  }
+
+  console.log('Creating message with context:', context.substring(0, 100) + '...');
+
+  // Get user settings for AI
+  const userId = request.headers['x-user-id'];
+  const users = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'users.json'), 'utf-8'));
+  const user = users[userId];
+
+  let systemPrompt = '';
+  switch (messageType) {
+    case 'reply':
+      systemPrompt = `You are a helpful assistant. Based on the conversation context provided, generate a natural and relevant reply. The reply should be contextually appropriate and engaging.`;
+      break;
+    case 'question':
+      systemPrompt = `You are a curious assistant. Based on the conversation context provided, generate an insightful question that would continue the conversation naturally and show genuine interest.`;
+      break;
+    case 'elaboration':
+      systemPrompt = `You are an articulate assistant. Based on the conversation context provided, generate a message that elaborates on the previous topic, adding valuable insights or additional information.`;
+      break;
+    case 'summary':
+      systemPrompt = `You are an organized assistant. Based on the conversation context provided, generate a message that summarizes the key points discussed so far.`;
+      break;
+    default:
+      systemPrompt = `You are a helpful assistant. Based on the conversation context provided, generate a natural and relevant message.`;
+  }
+
+  // Adjust for style
+  if (style === 'formal') {
+    systemPrompt += ` Use a professional and formal tone.`;
+  } else if (style === 'casual') {
+    systemPrompt += ` Use a friendly and casual tone.`;
+  } else if (style === 'humorous') {
+    systemPrompt += ` Add some humor and wit to make it entertaining.`;
+  }
+
+  // Add bot personality if provided
+  if (botPersonality && botPersonality.trim()) {
+    systemPrompt += ` Consider this personality/context: ${botPersonality}`;
+  }
+
+  try {
+    const aiProvider = user ? (user.aiProvider || 'https://text.pollinations.ai/openai') : 'https://text.pollinations.ai/openai';
+    const apiKey = user ? (user.apiKey || '') : '';
+    const model = user ? (user.aiModel || 'mistral') : 'mistral';
+
+    const headers = {
+      'Content-Type': 'application/json'
+    };
+
+    if (apiKey) {
+      headers['Authorization'] = `Bearer ${apiKey}`;
+    }
+
+    const messages = [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: `Context: ${context}` }
+    ];
+
+    const response = await fetch(aiProvider, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        model: model,
+        messages: messages,
+        max_tokens: 500,
+        temperature: 0.8
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`AI API Error: ${response.status} ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    const generatedMessage = data.choices[0].message.content.trim();
+
+    return {
+      generated: generatedMessage,
+      messageType: messageType,
+      style: style,
+      context: context
+    };
+
+  } catch (error) {
+    console.error('Error creating message:', error);
+    return reply.code(500).send({
+      error: 'Failed to create message',
+      details: error.message
+    });
+  }
+});
+
 app.register(require("@fastify/static"), {
   root: path.join(__dirname, "public"),
   prefix: "/",
@@ -178,16 +508,29 @@ app.get("/api/profile/:profile", async (request, reply) => {
 
   
   userBots = userBots.map((bot) => {
-    
+
     if (typeof bot.views !== "number") {
       bot.views = 0;
     }
-    return {
-      id: bot.id,
-      ...Object.entries(bot)
-        .filter(([key]) => key !== "sys_pmt")
-        .reduce((obj, [key, value]) => ({ ...obj, [key]: value }), {}),
-    };
+
+    // Only include sys_pmt if user owns the bot or is viewing their own profile
+    const canSeeSysPmt = isOwnProfile || (requestingUserId && users[requestingUserId] && bot.author === users[requestingUserId].name);
+
+    if (canSeeSysPmt) {
+      // Include full bot data including sys_pmt
+      return {
+        id: bot.id,
+        ...bot,
+      };
+    } else {
+      // Filter out sys_pmt for public listings
+      return {
+        id: bot.id,
+        ...Object.entries(bot)
+          .filter(([key]) => key !== "sys_pmt")
+          .reduce((obj, [key, value]) => ({ ...obj, [key]: value }), {}),
+      };
+    }
   });
 
   
@@ -363,11 +706,10 @@ app.get("/api/bots/:id", async (request, reply) => {
     bot.views = 0;
   }
 
+  // Include sys_pmt for users who can access the bot (needed for AI generation)
   const safeBot = {
     id: botId,
-    ...Object.entries(bot)
-      .filter(([key]) => key !== "sys_pmt")
-      .reduce((obj, [key, value]) => ({ ...obj, [key]: value }), {}),
+    ...bot,
   };
   return safeBot;
 });
@@ -791,7 +1133,7 @@ app.post("/api/upload-bot", async (request, reply) => {
     return;
   }
 
-  const { name, description, status, avatar, sys_pmt, greeting, chats, tags } =
+  const { name, description, status, avatar, sys_pmt, greeting, chats, tags, lorebook } =
     request.body;
   if (!name || !description || !status || !sys_pmt || !greeting) {
     return reply
@@ -804,7 +1146,8 @@ app.post("/api/upload-bot", async (request, reply) => {
     sanitizedSysPmt,
     sanitizedGreeting,
     sanitizedChats,
-    sanitizedTags;
+    sanitizedTags,
+    sanitizedLorebook;
 
   try {
     sanitizedName = validateAndSanitizeInput(name, "text", 100);
@@ -819,6 +1162,23 @@ app.post("/api/upload-bot", async (request, reply) => {
         .filter((t) => typeof t === "string")
         .map((t) => validateAndSanitizeInput(t.trim(), "text", 50))
         .filter((t) => t.length > 0);
+    }
+
+    sanitizedLorebook = [];
+    if (Array.isArray(lorebook)) {
+      sanitizedLorebook = lorebook
+        .filter((url) => typeof url === "string")
+        .map((url) => {
+          const trimmedUrl = url.trim();
+          // Basic URL validation
+          try {
+            new URL(trimmedUrl);
+            return trimmedUrl;
+          } catch {
+            return null;
+          }
+        })
+        .filter((url) => url !== null && url.length > 0 && url.length <= 2000);
     }
 
     if (!["public", "private"].includes(status)) {
@@ -865,6 +1225,7 @@ app.post("/api/upload-bot", async (request, reply) => {
     greeting: sanitizedGreeting,
     chats: sanitizedChats,
     tags: sanitizedTags,
+    lorebook: sanitizedLorebook,
     views: 0,
   };
   fs.writeFileSync(
@@ -899,14 +1260,56 @@ app.get("/api/chats", async (request, reply) => {
   const conversations = JSON.parse(
     fs.readFileSync(path.join(__dirname, "data", "conversations.json"), "utf-8")
   );
+  const includeFull = request.query.full === 'true';
   const chats = {};
   userConversations.forEach((id) => {
     if (conversations[id]) {
-      chats[id] = conversations[id];
+      if (includeFull) {
+        // Include full chat data for backward compatibility
+        chats[id] = conversations[id];
+      } else {
+        // Only include metadata, not full messages
+        chats[id] = {
+          id: conversations[id].id,
+          with: conversations[id].with,
+          lastModified: conversations[id].lastModified || Date.now(),
+          messageCount: conversations[id].messages ? conversations[id].messages.length : 0
+        };
+      }
     }
   });
 
   return { chats };
+});
+
+// New endpoint to get full chat with messages
+app.get("/api/chats/:id", async (request, reply) => {
+  try {
+    await auth_middleware(request, reply);
+  } catch (e) {
+    return;
+  }
+
+  const chatId = request.params.id;
+  const userId = request.headers["x-user-id"];
+  const users = JSON.parse(
+    fs.readFileSync(path.join(__dirname, "data", "users.json"), "utf-8")
+  );
+
+  // Check if user owns this conversation
+  if (!users[userId].conversations.includes(chatId)) {
+    return reply.code(403).send({ error: "Access denied" });
+  }
+
+  const conversations = JSON.parse(
+    fs.readFileSync(path.join(__dirname, "data", "conversations.json"), "utf-8")
+  );
+
+  if (!conversations[chatId]) {
+    return reply.code(404).send({ error: "Chat not found" });
+  }
+
+  return { chat: conversations[chatId] };
 });
 
 app.post("/api/chats", async (request, reply) => {
@@ -916,7 +1319,7 @@ app.post("/api/chats", async (request, reply) => {
     return;
   }
 
-  const { with: withUser, messages } = request.body;
+  const { id: providedId, with: withUser, messages } = request.body;
   if (!withUser || !messages || !Array.isArray(messages)) {
     return reply
       .code(400)
@@ -925,30 +1328,48 @@ app.post("/api/chats", async (request, reply) => {
       });
   }
   if (messages.length > 1000) {
-    
+
     return reply.code(400).send({ error: "Too many messages" });
   }
   const userId = request.headers["x-user-id"];
-  const id = crypto.randomBytes(16).toString("hex");
 
   const conversations = JSON.parse(
     fs.readFileSync(path.join(__dirname, "data", "conversations.json"), "utf-8")
   );
+  const users = JSON.parse(
+    fs.readFileSync(path.join(__dirname, "data", "users.json"), "utf-8")
+  );
+
+  let id = providedId;
+  let isUpdate = false;
+
+  // Check if this is an update to existing conversation
+  if (id && conversations[id]) {
+    // Verify user owns this conversation
+    if (!users[userId].conversations.includes(id)) {
+      return reply.code(403).send({ error: "Access denied" });
+    }
+    isUpdate = true;
+  } else {
+    // Create new conversation
+    id = crypto.randomBytes(16).toString("hex");
+  }
+
   conversations[id] = {
     id,
     with: withUser,
     messages,
-    createdAt: new Date().toISOString(),
+    createdAt: conversations[id]?.createdAt || new Date().toISOString(),
+    lastModified: new Date().toISOString(),
   };
+
   fs.writeFileSync(
     path.join(__dirname, "data", "conversations.json"),
     JSON.stringify(conversations, null, 2)
   );
 
-  const users = JSON.parse(
-    fs.readFileSync(path.join(__dirname, "data", "users.json"), "utf-8")
-  );
-  if (!users[userId].conversations.includes(id)) {
+  // Add to user's conversation list if it's a new chat
+  if (!isUpdate && !users[userId].conversations.includes(id)) {
     users[userId].conversations.push(id);
     fs.writeFileSync(
       path.join(__dirname, "data", "users.json"),
@@ -956,7 +1377,7 @@ app.post("/api/chats", async (request, reply) => {
     );
   }
 
-  return { status: "ok", conversationId: id };
+  return { status: "ok", conversationId: id, id };
 });
 
 app.delete("/api/chats/:id", async (request, reply) => {

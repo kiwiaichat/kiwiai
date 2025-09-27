@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Create Bot - KiwiAI</title>
     <link rel="icon" type="image/x-icon" href="../assets/general/favicon.png">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         
         body {
@@ -111,6 +112,131 @@
 
         .submit-btn:hover {
             background-color: #7abf7a;
+        }
+
+        /* Rich Text Editor Styles */
+        .rich-text-editor {
+            border: 1px solid rgba(150, 214, 150, 0.3);
+            border-radius: 5px;
+            background-color: #565756;
+            color: rgb(204, 218, 206);
+        }
+
+        .rich-text-toolbar {
+            display: flex;
+            gap: 5px;
+            padding: 8px;
+            border-bottom: 1px solid rgba(150, 214, 150, 0.3);
+            background-color: #4a4b4a;
+            flex-wrap: wrap;
+        }
+
+        .rich-text-btn {
+            background: none;
+            border: none;
+            color: #96d696;
+            padding: 6px 8px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 14px;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+        }
+
+        .rich-text-btn:hover {
+            background-color: rgba(150, 214, 150, 0.2);
+        }
+
+        .rich-text-btn.active {
+            background-color: #96d696;
+            color: #060806;
+        }
+
+        .rich-text-textarea {
+            width: 100%;
+            min-height: 150px;
+            padding: 15px;
+            border: none;
+            border-radius: 0 0 5px 5px;
+            background-color: #565756;
+            color: rgb(204, 218, 206);
+            font-size: 16px;
+            font-family: Arial, Helvetica, sans-serif;
+            resize: vertical;
+            outline: none;
+            box-sizing: border-box;
+        }
+
+        .rich-text-textarea:focus {
+            outline: none;
+        }
+
+        .rich-text-textarea::placeholder {
+            color: #96d696;
+        }
+
+        /* AI Enhancement Styles */
+        .ai-enhancement-panel {
+            background-color: #4a4b4a;
+            border: 1px solid rgba(150, 214, 150, 0.3);
+            border-radius: 8px;
+            padding: 12px;
+            margin-top: 8px;
+        }
+
+        .enhancement-controls {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 8px;
+            flex-wrap: wrap;
+        }
+
+        .enhancement-btn {
+            background-color: #96d696;
+            color: #060806;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+        }
+
+        .enhancement-btn:hover {
+            background-color: #8bcf8b;
+        }
+
+        .enhancement-btn.secondary {
+            background-color: #565756;
+            color: #96d696;
+        }
+
+        .enhancement-btn.secondary:hover {
+            background-color: #4a4b4a;
+        }
+
+        .enhanced-preview {
+            background-color: #565756;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 8px;
+            border-left: 3px solid #96d696;
+        }
+
+        .enhancement-loading {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border: 2px solid #96d696;
+            border-radius: 50%;
+            border-top-color: transparent;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
         }
 
 
@@ -221,9 +347,53 @@
                     <option value="private">Private</option>
                 </select>
                 <input type="text" id="tags" name="tags" class="input-field" placeholder="Tags (comma-separated)">
+                <input type="text" id="lorebook" name="lorebook" class="input-field" placeholder="Lorebook URLs (comma-separated, optional)">
                 <input type="file" id="avatar" name="avatar" class="input-field" accept="image/*" required>
-                <textarea id="sys_pmt" name="sys_pmt" class="input-field" placeholder="System Prompt / Character Definition" required></textarea>
-                <textarea type="text" id="greeting" name="greeting" class="input-field" placeholder="Greeting Message" required></textarea>
+
+                <!-- Rich Text Editor for System Prompt -->
+                <div class="rich-text-editor">
+                    <div class="rich-text-toolbar">
+                        <button type="button" class="rich-text-btn" data-command="bold" title="Bold"><i class="fas fa-bold"></i></button>
+                        <button type="button" class="rich-text-btn" data-command="italic" title="Italic"><i class="fas fa-italic"></i></button>
+                        <button type="button" class="rich-text-btn" data-command="underline" title="Underline"><i class="fas fa-underline"></i></button>
+                        <button type="button" class="rich-text-btn" data-command="insertUnorderedList" title="Bullet List"><i class="fas fa-list-ul"></i></button>
+                        <button type="button" class="rich-text-btn" data-command="insertOrderedList" title="Numbered List"><i class="fas fa-list-ol"></i></button>
+                        <button type="button" class="rich-text-btn enhancement-btn" data-type="sys_pmt" title="AI Enhance"><i class="fas fa-magic"></i></button>
+                    </div>
+                    <textarea id="sys_pmt" name="sys_pmt" class="rich-text-textarea" placeholder="System Prompt / Character Definition" required></textarea>
+                </div>
+
+                <!-- Rich Text Editor for Greeting -->
+                <div class="rich-text-editor">
+                    <div class="rich-text-toolbar">
+                        <button type="button" class="rich-text-btn" data-command="bold" title="Bold"><i class="fas fa-bold"></i></button>
+                        <button type="button" class="rich-text-btn" data-command="italic" title="Italic"><i class="fas fa-italic"></i></button>
+                        <button type="button" class="rich-text-btn" data-command="underline" title="Underline"><i class="fas fa-underline"></i></button>
+                        <button type="button" class="rich-text-btn" data-command="insertUnorderedList" title="Bullet List"><i class="fas fa-list-ul"></i></button>
+                        <button type="button" class="rich-text-btn" data-command="insertOrderedList" title="Numbered List"><i class="fas fa-list-ol"></i></button>
+                        <button type="button" class="rich-text-btn enhancement-btn" data-type="greeting" title="AI Enhance"><i class="fas fa-magic"></i></button>
+                    </div>
+                    <textarea id="greeting" name="greeting" class="rich-text-textarea" placeholder="Greeting Message" required></textarea>
+                </div>
+
+                <!-- AI Enhancement Panel (initially hidden) -->
+                <div id="ai-enhancement-panel" class="ai-enhancement-panel" style="display: none;">
+                    <div class="enhancement-controls">
+                        <button type="button" class="enhancement-btn" data-enhancement="improve">Improve</button>
+                        <button type="button" class="enhancement-btn secondary" data-enhancement="formal">Make Formal</button>
+                        <button type="button" class="enhancement-btn secondary" data-enhancement="casual">Make Casual</button>
+                        <button type="button" class="enhancement-btn secondary" data-enhancement="expand">Expand</button>
+                        <button type="button" class="enhancement-btn secondary" data-enhancement="summarize">Summarize</button>
+                    </div>
+                    <div id="enhanced-preview" class="enhanced-preview" style="display: none;">
+                        <strong>Enhanced Version:</strong><br>
+                        <div id="enhanced-content"></div>
+                        <div class="enhancement-controls" style="margin-top: 8px; margin-bottom: 0;">
+                            <button type="button" class="enhancement-btn" id="apply-enhancement">Apply Changes</button>
+                            <button type="button" class="enhancement-btn secondary" id="discard-enhancement">Discard</button>
+                        </div>
+                    </div>
+                </div>
                 <button type="submit" class="submit-btn">Create Bot</button>
             </form>
         </div>
@@ -274,12 +444,22 @@
                                 document.getElementById('description').value = bot.description;
                                 document.getElementById('status').value = bot.status;
                                 document.getElementById('tags').value = bot.tags ? bot.tags.join(', ') : '';
+                                document.getElementById('lorebook').value = bot.lorebook ? bot.lorebook.join(', ') : '';
                                 document.getElementById('sys_pmt').value = bot.sys_pmt;
                                 document.getElementById('greeting').value = bot.greeting;
 
                                 document.querySelector('#maker-form h2').textContent = 'Edit Bot';
 
                                 document.querySelector('#maker-form button[type="submit"]').textContent = 'Update Bot';
+
+                                // Make avatar upload optional when editing
+                                document.getElementById('avatar').removeAttribute('required');
+
+                                // Update the form to show avatar is optional
+                                const avatarLabel = document.createElement('small');
+                                avatarLabel.textContent = ' (leave empty to keep current avatar)';
+                                avatarLabel.style.color = '#888';
+                                document.getElementById('avatar').parentNode.appendChild(avatarLabel);
 
                                 const deleteBtn = document.createElement('button');
                                 deleteBtn.type = 'button';
@@ -372,11 +552,16 @@
                 author: username,
                 status: document.getElementById('status').value,
                 tags: document.getElementById('tags').value.trim().split(',').map(tag => tag.trim()).filter(tag => tag),
-                avatar: avatarData,
+                lorebook: document.getElementById('lorebook').value.trim().split(',').map(url => url.trim()).filter(url => url),
                 sys_pmt: document.getElementById('sys_pmt').value.trim(),
                 greeting: document.getElementById('greeting').value.trim(),
                 chats: editingBotId ? (botData.chats || '') : ''
             };
+
+            // Only include avatar if we have new avatar data or if creating a new bot
+            if (avatarData || !editingBotId) {
+                formData.avatar = avatarData;
+            }
 
             try {
                 if (editingBotId) {

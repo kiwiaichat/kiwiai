@@ -85,6 +85,10 @@ class API {
         return this.request('/api/chats');
     }
 
+    async getChat(id) {
+        return this.request(`/api/chats/${id}`);
+    }
+
     async saveChat(id, withUser, messages) {
         return this.request('/api/chats', {
             method: 'POST',
@@ -98,13 +102,50 @@ class API {
         });
     }
 
-    async callAI(messages, systemPrompt) {
-        // Use the provided system prompt without modification
+    async callAI(messages, systemPrompt, botData = null) {
+        // Ensure we always have a valid system prompt
+        let enhancedSystemPrompt = systemPrompt || '';
 
+        console.log('=== AI CALL DEBUG START ===');
+        console.log('Original system prompt received:', systemPrompt);
+        console.log('Original system prompt type:', typeof systemPrompt);
+        console.log('Original system prompt length:', systemPrompt ? systemPrompt.length : 0);
+        console.log('Bot data:', botData);
 
+        // Process lorebook if available
+        if (botData && botData.lorebook && Array.isArray(botData.lorebook) && botData.lorebook.length > 0) {
+            try {
+                console.log('Processing lorebook for AI generation...');
+                const lorebookContent = await window.lorebookProcessor.processLorebook(botData.lorebook);
+                console.log('Lorebook content type:', typeof lorebookContent);
+                console.log('Lorebook content length:', lorebookContent ? lorebookContent.length : 0);
+
+                if (lorebookContent && lorebookContent.trim()) {
+                    enhancedSystemPrompt = `${systemPrompt}\n\n${lorebookContent}`;
+                    console.log('Enhanced system prompt with lorebook');
+                } else {
+                    console.log('No lorebook content, using original system prompt');
+                }
+            } catch (error) {
+                console.error('Error processing lorebook:', error);
+                // Ensure we fall back to original system prompt
+                enhancedSystemPrompt = systemPrompt || '';
+                console.log('Fell back to original system prompt after error');
+            }
+        }
+
+        console.log('Final enhanced system prompt:', enhancedSystemPrompt);
+        console.log('Final enhanced system prompt type:', typeof enhancedSystemPrompt);
+        console.log('Final enhanced system prompt length:', enhancedSystemPrompt ? enhancedSystemPrompt.length : 0);
+
+        if (!enhancedSystemPrompt || enhancedSystemPrompt.trim() === '') {
+            console.error('CRITICAL: System prompt is empty!');
+            console.log('Falling back to original system prompt...');
+            enhancedSystemPrompt = systemPrompt || 'You are a helpful AI assistant.';
+        }
 
         const fullMessages = [
-            { role: 'system', content: systemPrompt },
+            { role: 'system', content: enhancedSystemPrompt },
             ...messages
         ];
         const headers = {
@@ -133,9 +174,50 @@ class API {
         return data.choices[0].message.content;
     }
 
-    async callAIStream(messages, systemPrompt, onChunk) {
+    async callAIStream(messages, systemPrompt, onChunk, botData = null, abortSignal = null) {
+        // Ensure we always have a valid system prompt
+        let enhancedSystemPrompt = systemPrompt || '';
+
+        console.log('=== AI STREAM DEBUG START ===');
+        console.log('Stream - Original system prompt received:', systemPrompt);
+        console.log('Stream - Original system prompt type:', typeof systemPrompt);
+        console.log('Stream - Original system prompt length:', systemPrompt ? systemPrompt.length : 0);
+        console.log('Stream - Bot data:', botData);
+
+        // Process lorebook if available
+        if (botData && botData.lorebook && Array.isArray(botData.lorebook) && botData.lorebook.length > 0) {
+            try {
+                console.log('Processing lorebook for AI streaming...');
+                const lorebookContent = await window.lorebookProcessor.processLorebook(botData.lorebook);
+                console.log('Stream - Lorebook content type:', typeof lorebookContent);
+                console.log('Stream - Lorebook content length:', lorebookContent ? lorebookContent.length : 0);
+
+                if (lorebookContent && lorebookContent.trim()) {
+                    enhancedSystemPrompt = `${systemPrompt}\n\n${lorebookContent}`;
+                    console.log('Stream - Enhanced system prompt with lorebook');
+                } else {
+                    console.log('Stream - No lorebook content, using original system prompt');
+                }
+            } catch (error) {
+                console.error('Error processing lorebook:', error);
+                // Ensure we fall back to original system prompt
+                enhancedSystemPrompt = systemPrompt || '';
+                console.log('Stream - Fell back to original system prompt after error');
+            }
+        }
+
+        console.log('Stream - Final enhanced system prompt:', enhancedSystemPrompt);
+        console.log('Stream - Final enhanced system prompt type:', typeof enhancedSystemPrompt);
+        console.log('Stream - Final enhanced system prompt length:', enhancedSystemPrompt ? enhancedSystemPrompt.length : 0);
+
+        if (!enhancedSystemPrompt || enhancedSystemPrompt.trim() === '') {
+            console.error('CRITICAL: Stream system prompt is empty!');
+            console.log('Stream - Falling back to original system prompt...');
+            enhancedSystemPrompt = systemPrompt || 'You are a helpful AI assistant.';
+        }
+
         const fullMessages = [
-            { role: 'system', content: systemPrompt },
+            { role: 'system', content: enhancedSystemPrompt },
             ...messages
         ];
         const headers = {
@@ -148,7 +230,7 @@ class API {
             headers['Authorization'] = `Bearer ${apiKey}`;
         }
 
-        const response = await fetch(this.getAIProvider(), {
+        const fetchOptions = {
             method: 'POST',
             headers,
             body: JSON.stringify({
@@ -156,7 +238,14 @@ class API {
                 messages: fullMessages,
                 stream: true
             })
-        });
+        };
+
+        // Add abort signal if provided
+        if (abortSignal) {
+            fetchOptions.signal = abortSignal;
+        }
+
+        const response = await fetch(this.getAIProvider(), fetchOptions);
         if (!response.ok) {
             throw new Error(`AI Stream Error: ${response.status} ${response.statusText}`);
         }
