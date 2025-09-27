@@ -6,6 +6,5 @@ data/
 
 # Ignore public/assets/user directory, except for default.png
 public/assets/user/
-!public/assets/user/default.png
 # Ignore public/assets/bots directory
 public/assets/bots/
