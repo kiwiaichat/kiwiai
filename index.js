@@ -1152,9 +1152,9 @@ app.post("/api/upload-bot", async (request, reply) => {
   try {
     sanitizedName = validateAndSanitizeInput(name, "text", 100);
     sanitizedDescription = validateAndSanitizeInput(description, "text", 1000);
-    sanitizedSysPmt = validateAndSanitizeInput(sys_pmt, "text", 5000);
-    sanitizedGreeting = validateAndSanitizeInput(greeting, "text", 1000);
-    sanitizedChats = validateAndSanitizeInput(chats || "", "text", 5000);
+    sanitizedSysPmt = validateAndSanitizeInput(sys_pmt, "text", 15000);
+    sanitizedGreeting = validateAndSanitizeInput(greeting, "text", 15000);
+    sanitizedChats = validateAndSanitizeInput(chats || "", "text", 500_000);
 
     sanitizedTags = [];
     if (Array.isArray(tags)) {
@@ -1196,31 +1196,14 @@ app.post("/api/upload-bot", async (request, reply) => {
     fs.readFileSync(path.join(__dirname, "data", "users.json"), "utf-8")
   );
   const user = users[id];
-  const bot_id = Object.keys(bots).length.toString();
-
-  
-  let avatarPath = "/assets/bots/noresponse.png";
-  if (avatar && avatar.startsWith("data:image/")) {
-    try {
-      
-      const base64Data = avatar.split(",")[1];
-
-      
-      const fileName = `${bot_id}.png`;
-      avatarPath = await optimizeAndSaveImage(base64Data, fileName);
-    } catch (error) {
-      return reply
-        .code(400)
-        .send({ error: `Avatar upload failed: ${error.message}` });
-    }
-  }
+  const bot_id = (Math.max(-1, ...Object.keys(bots).map(Number)) + 1).toString();
 
   bots[bot_id] = {
     name: sanitizedName,
     description: sanitizedDescription,
     author: user.name,
     status,
-    avatar: avatarPath,
+    avatar: avatar || "/assets/bots/noresponse.png",
     sys_pmt: sanitizedSysPmt,
     greeting: sanitizedGreeting,
     chats: sanitizedChats,

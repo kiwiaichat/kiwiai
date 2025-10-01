@@ -10,8 +10,7 @@
         
         body {
             margin: 0;
-            height: 100vh;
-            overflow: hidden;
+            min-height: 100vh;
             font-family: Arial, Helvetica, sans-serif;
         }
 
@@ -19,7 +18,7 @@
             display: flex;
             background-color: #060806;
             color: rgb(204, 218, 206);
-            height: 100%;
+            min-height: 100vh;
             flex-direction: column;
         }
 
@@ -59,7 +58,9 @@
             flex: 1;
             display: flex;
             justify-content: center;
-            align-items: center;
+            align-items: flex-start;
+            padding: 40px 20px;
+            overflow-y: auto;
         }
 
         #maker-form {
@@ -70,6 +71,8 @@
             flex-direction: column;
             gap: 20px;
             width: 400px;
+            max-width: 100%;
+            margin-bottom: 40px;
         }
 
         #maker-form h2 {
@@ -258,14 +261,13 @@
 
             #maker-container {
                 padding: 20px 15px;
-                align-items: flex-start;
             }
 
             #maker-form {
                 width: 100%;
                 max-width: 400px;
                 padding: 20px;
-                margin: 0;
+                margin: 0 auto 20px;
                 box-sizing: border-box;
             }
 
@@ -300,12 +302,13 @@
             }
 
             #maker-container {
-                padding: 15px 10px;
+                padding: 15px 10px 60px;
             }
 
             #maker-form {
                 padding: 15px;
                 gap: 15px;
+                margin-bottom: 20px;
             }
 
             #maker-form h2 {

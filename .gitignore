@@ -9,3 +9,6 @@ public/assets/users/
 !public/assets/users/default.png
 # Ignore public/assets/bots directory
 public/assets/bots/
+auto
+.lc_config
+.claude
