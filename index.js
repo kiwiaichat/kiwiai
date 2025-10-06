@@ -9,10 +9,73 @@ const app = fastify({ logger: false });
 
 const authAttempts = new Map();
 
-// Proxy cache for lorebook fetching
+// Stats tracking
+const STATS_FILE = path.join(__dirname, "data", "stats.json");
+
+function loadStats() {
+  try {
+    if (fs.existsSync(STATS_FILE)) {
+      return JSON.parse(fs.readFileSync(STATS_FILE, "utf-8"));
+    }
+  } catch (error) {
+    console.error("Error loading stats:", error);
+  }
+  return {
+    dailyActiveUsers: {},
+    totalRequests: 0,
+    lastUpdated: new Date().toISOString()
+  };
+}
+
+function saveStats(stats) {
+  try {
+    stats.lastUpdated = new Date().toISOString();
+    fs.writeFileSync(STATS_FILE, JSON.stringify(stats, null, 2));
+  } catch (error) {
+    console.error("Error saving stats:", error);
+  }
+}
+
+function trackDailyUser(userId) {
+  if (!userId) return;
+
+  const stats = loadStats();
+  const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+
+  if (!stats.dailyActiveUsers[today]) {
+    stats.dailyActiveUsers[today] = [];
+  }
+
+  if (!stats.dailyActiveUsers[today].includes(userId)) {
+    stats.dailyActiveUsers[today].push(userId);
+  }
+
+  // Clean up old data (keep last 30 days)
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  const cutoffDate = thirtyDaysAgo.toISOString().split('T')[0];
+
+  Object.keys(stats.dailyActiveUsers).forEach(date => {
+    if (date < cutoffDate) {
+      delete stats.dailyActiveUsers[date];
+    }
+  });
+
+  saveStats(stats);
+}
+
+// Middleware to track daily active users
+app.addHook('onRequest', async (request, reply) => {
+  const userId = request.headers['x-user-id'];
+  if (userId) {
+    trackDailyUser(userId);
+  }
+});
+
+
 let proxyList = [];
 let proxyLastFetched = 0;
-const PROXY_CACHE_DURATION = 10 * 60 * 1000; // 10 minutes
+const PROXY_CACHE_DURATION = 10 * 60 * 1000; 
 
 function checkRateLimit(ip) {
   const now = Date.now();
@@ -111,7 +174,7 @@ function updateTagUsage() {
   tagUsage = counts;
 }
 
-// Fetch and cache proxy list
+
 async function fetchProxyList() {
   const now = Date.now();
   if (proxyList.length > 0 && (now - proxyLastFetched) < PROXY_CACHE_DURATION) {
@@ -120,9 +183,10 @@ async function fetchProxyList() {
 
   try {
     const response = await fetch('https://proxylist.geonode.com/api/proxy-list?limit=500&page=1&sort_by=lastChecked&sort_type=desc');
+    
     const data = await response.json();
 
-    // Filter for working HTTP proxies with good uptime
+    
     proxyList = data.data
       .filter(proxy =>
         proxy.protocols.includes('http') &&
@@ -130,18 +194,18 @@ async function fetchProxyList() {
         proxy.speed > 100 &&
         proxy.anonymityLevel === 'elite'
       )
-      .slice(0, 20); // Keep top 20 proxies
+      .slice(0, 20); 
 
     proxyLastFetched = now;
     console.log(`Fetched ${proxyList.length} working proxies`);
     return proxyList;
   } catch (error) {
     console.error('Failed to fetch proxy list:', error);
-    return proxyList; // Return cached list if available
+    return proxyList; 
   }
 }
 
-// Lorebook proxy endpoint
+
 app.post('/api/lorebook-fetch', async (request, reply) => {
    try {
      await auth_middleware(request, reply);
@@ -154,7 +218,7 @@ app.post('/api/lorebook-fetch', async (request, reply) => {
      return reply.code(400).send({ error: 'URL is required' });
    }
 
-   // Validate URL
+   
    try {
      new URL(url);
    } catch {
@@ -163,7 +227,7 @@ app.post('/api/lorebook-fetch', async (request, reply) => {
 
    console.log('Fetching lorebook content from:', url);
 
-   // Try direct fetch first
+   
    try {
      const response = await fetch(url, {
        headers: {
@@ -186,15 +250,15 @@ app.post('/api/lorebook-fetch', async (request, reply) => {
      console.log('Direct fetch failed, trying proxies:', directError.message);
    }
 
-   // If direct fetch fails, try proxies
+   
    const proxies = await fetchProxyList();
 
-   for (const proxy of proxies.slice(0, 5)) { // Try top 5 proxies
+   for (const proxy of proxies.slice(0, 5)) { 
      try {
        const proxyUrl = `http://${proxy.ip}:${proxy.port}`;
        console.log(`Trying proxy: ${proxyUrl}`);
 
-       // Create proxy agent
+       
        const agent = new HttpsProxyAgent(proxyUrl);
 
        const response = await fetch(url, {
@@ -229,7 +293,7 @@ app.post('/api/lorebook-fetch', async (request, reply) => {
    });
  });
 
-// AI-powered message enhancement endpoint
+
 app.post('/api/enhance-message', async (request, reply) => {
   try {
     await auth_middleware(request, reply);
@@ -249,7 +313,7 @@ app.post('/api/enhance-message', async (request, reply) => {
 
   console.log('Enhancing message:', message.substring(0, 100) + '...');
 
-  // Get user settings for AI
+  
   const userId = request.headers['x-user-id'];
   const users = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'users.json'), 'utf-8'));
   const user = users[userId];
@@ -276,9 +340,9 @@ app.post('/api/enhance-message', async (request, reply) => {
   }
 
   try {
-    const aiProvider = user ? (user.aiProvider || 'https://text.pollinations.ai/openai') : 'https://text.pollinations.ai/openai';
-    const apiKey = user ? (user.apiKey || '') : '';
-    const model = user ? (user.aiModel || 'mistral') : 'mistral';
+    const aiProvider = user.aiProvider 
+    const apiKey = user.apiKey 
+    const model = user.aiModel 
 
     const headers = {
       'Content-Type': 'application/json'
@@ -330,7 +394,7 @@ app.post('/api/enhance-message', async (request, reply) => {
   }
 });
 
-// AI-powered message creation endpoint
+
 app.post('/api/create-message', async (request, reply) => {
   try {
     await auth_middleware(request, reply);
@@ -346,7 +410,7 @@ app.post('/api/create-message', async (request, reply) => {
 
   console.log('Creating message with context:', context.substring(0, 100) + '...');
 
-  // Get user settings for AI
+  
   const userId = request.headers['x-user-id'];
   const users = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'users.json'), 'utf-8'));
   const user = users[userId];
@@ -369,7 +433,7 @@ app.post('/api/create-message', async (request, reply) => {
       systemPrompt = `You are a helpful assistant. Based on the conversation context provided, generate a natural and relevant message.`;
   }
 
-  // Adjust for style
+  
   if (style === 'formal') {
     systemPrompt += ` Use a professional and formal tone.`;
   } else if (style === 'casual') {
@@ -378,15 +442,15 @@ app.post('/api/create-message', async (request, reply) => {
     systemPrompt += ` Add some humor and wit to make it entertaining.`;
   }
 
-  // Add bot personality if provided
+  
   if (botPersonality && botPersonality.trim()) {
     systemPrompt += ` Consider this personality/context: ${botPersonality}`;
   }
 
   try {
-    const aiProvider = user ? (user.aiProvider || 'https://text.pollinations.ai/openai') : 'https://text.pollinations.ai/openai';
-    const apiKey = user ? (user.apiKey || '') : '';
-    const model = user ? (user.aiModel || 'mistral') : 'mistral';
+    const aiProvider = user.aiProvider ;
+    const apiKey =  user.apiKey;
+    const model =  user.aiModel;
 
     const headers = {
       'Content-Type': 'application/json'
@@ -483,12 +547,12 @@ app.get("/api/profile/:profile", async (request, reply) => {
   const bots = JSON.parse(
     fs.readFileSync(path.join(__dirname, "data", "bots.json"), "utf-8")
   );
-  let userBots = user.bots.map((botId) => bots[botId]).filter(Boolean);
+  let userBots = user.bots.map((botId) => ({ id: botId, ...bots[botId] })).filter(bot => bot.name);
 
-  
+
   const isOwnProfile = requestingUserId === userId;
 
-  
+
   userBots = userBots.filter((bot) => {
     
     if (bot.status === "public") {
@@ -513,17 +577,17 @@ app.get("/api/profile/:profile", async (request, reply) => {
       bot.views = 0;
     }
 
-    // Only include sys_pmt if user owns the bot or is viewing their own profile
+    
     const canSeeSysPmt = isOwnProfile || (requestingUserId && users[requestingUserId] && bot.author === users[requestingUserId].name);
 
     if (canSeeSysPmt) {
-      // Include full bot data including sys_pmt
+      
       return {
         id: bot.id,
         ...bot,
       };
     } else {
-      // Filter out sys_pmt for public listings
+      
       return {
         id: bot.id,
         ...Object.entries(bot)
@@ -550,8 +614,68 @@ app.get("/api/profile/:profile", async (request, reply) => {
   return { ...safeUserData, id: userId };
 });
 
+app.get("/api/stats", async (request, reply) => {
+  try {
+    const bots = JSON.parse(
+      fs.readFileSync(path.join(__dirname, "data", "bots.json"), "utf-8")
+    );
+    const users = JSON.parse(
+      fs.readFileSync(path.join(__dirname, "data", "users.json"), "utf-8")
+    );
+    const stats = loadStats();
+
+    // Calculate stats
+    const totalUsers = Object.keys(users).length;
+    const totalBots = Object.keys(bots).length;
+
+    const publicBots = Object.values(bots).filter(bot => bot.status === 'public').length;
+    const privateBots = Object.values(bots).filter(bot => bot.status === 'private').length;
+
+    // Get today's active users
+    const today = new Date().toISOString().split('T')[0];
+    const dailyActiveUsers = stats.dailyActiveUsers[today] ? stats.dailyActiveUsers[today].length : 0;
+
+    // Calculate 7-day average
+    const last7Days = [];
+    for (let i = 0; i < 7; i++) {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+      const dateStr = date.toISOString().split('T')[0];
+      if (stats.dailyActiveUsers[dateStr]) {
+        last7Days.push(stats.dailyActiveUsers[dateStr].length);
+      }
+    }
+    const averageDailyUsers = last7Days.length > 0
+      ? Math.round(last7Days.reduce((a, b) => a + b, 0) / last7Days.length)
+      : 0;
+
+    // Get daily active users for last 30 days (for chart)
+    const dailyUserData = {};
+    for (let i = 29; i >= 0; i--) {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+      const dateStr = date.toISOString().split('T')[0];
+      dailyUserData[dateStr] = stats.dailyActiveUsers[dateStr] ? stats.dailyActiveUsers[dateStr].length : 0;
+    }
+
+    return {
+      totalUsers,
+      totalBots,
+      publicBots,
+      privateBots,
+      dailyActiveUsers,
+      averageDailyUsers,
+      dailyUserData,
+      lastUpdated: stats.lastUpdated
+    };
+  } catch (error) {
+    console.error("Error fetching stats:", error);
+    return reply.code(500).send({ error: "Failed to fetch stats" });
+  }
+});
+
 app.get("/api/tags", async (request, reply) => {
-  const userId = request.headers["x-user-id"];
+  const userId = request.headers["x-user-id"] || null;
   const bots = JSON.parse(
     fs.readFileSync(path.join(__dirname, "data", "bots.json"), "utf-8")
   );
@@ -610,7 +734,7 @@ app.get("/api/bots", async (request, reply) => {
     field = "name";
   }
 
-  const userId = request.headers["x-user-id"];
+  const userId = request.headers["x-user-id"] || null;
   const bots = JSON.parse(
     fs.readFileSync(path.join(__dirname, "data", "bots.json"), "utf-8")
   );
@@ -680,9 +804,28 @@ app.get("/api/bots", async (request, reply) => {
   return { bots: botList };
 });
 
+app.get("/api/bots/id/:encodedId", async (request, reply) => {
+  const encodedId = request.params.encodedId;
+
+  try {
+    const botId = Buffer.from(encodedId, 'base64').toString('utf-8');
+    const bots = JSON.parse(
+      fs.readFileSync(path.join(__dirname, "data", "bots.json"), "utf-8")
+    );
+
+    if (!bots[botId]) {
+      return reply.code(404).send({ error: "Bot not found" });
+    }
+
+    return { id: botId, encodedId: encodedId };
+  } catch (error) {
+    return reply.code(400).send({ error: "Invalid bot ID" });
+  }
+});
+
 app.get("/api/bots/:id", async (request, reply) => {
   const botId = request.params.id;
-  const userId = request.headers["x-user-id"];
+  const userId = request.headers["x-user-id"] || null;
   const bots = JSON.parse(
     fs.readFileSync(path.join(__dirname, "data", "bots.json"), "utf-8")
   );
@@ -701,12 +844,12 @@ app.get("/api/bots/:id", async (request, reply) => {
     return reply.code(404).send({ error: "Bot not found" });
   }
 
-  
+
   if (typeof bot.views !== "number") {
     bot.views = 0;
   }
 
-  // Include sys_pmt for users who can access the bot (needed for AI generation)
+
   const safeBot = {
     id: botId,
     ...bot,
@@ -740,7 +883,25 @@ app.put("/api/bots/:id", async (request, reply) => {
   }
 
   const updatedData = { ...request.body };
-  delete updatedData.author; 
+  delete updatedData.author;
+
+  // Handle avatar update - save as WebP file if provided
+  if (updatedData.avatar && updatedData.avatar.startsWith("data:image/")) {
+    try {
+      // Delete old avatar if it exists and is not default
+      if (bots[botId].avatar && bots[botId].avatar.startsWith("/assets/bots/") && bots[botId].avatar !== "/assets/bots/noresponse.png") {
+        deleteImageFile(bots[botId].avatar);
+      }
+
+      const base64Data = updatedData.avatar.split(",")[1];
+      const fileName = `${botId}.webp`;
+      updatedData.avatar = await optimizeAndSaveImage(base64Data, fileName);
+    } catch (error) {
+      console.error("Error saving avatar:", error);
+      return reply.code(400).send({ error: "Failed to save avatar: " + error.message });
+    }
+  }
+
   Object.assign(bots[botId], updatedData);
 
   fs.writeFileSync(
@@ -981,16 +1142,23 @@ function canAccessBot(bot, userId, users) {
   if (!userId || !users[userId]) {
     return false;
   }
-  return bot.author === users[userId].name;
+  const canAccess = bot.author === users[userId].name;
+
+  // Debug logging for private bots
+  if (bot.status === "private" && canAccess) {
+    console.log(`[DEBUG] Showing private bot "${bot.name}" to owner ${users[userId].name}`);
+  }
+
+  return canAccess;
 }
 
 async function optimizeAndSaveImage(base64Data, fileName) {
-  
+
   if (!base64Data || typeof base64Data !== "string") {
     throw new Error("Invalid image data");
   }
 
-  
+
   const sizeInBytes = (base64Data.length * 3) / 4;
   if (sizeInBytes > 5 * 1024 * 1024) {
     throw new Error("Image too large. Maximum size: 5MB");
@@ -998,7 +1166,7 @@ async function optimizeAndSaveImage(base64Data, fileName) {
 
   const buffer = Buffer.from(base64Data, "base64");
 
-  
+
   try {
     const metadata = await sharp(buffer).metadata();
     if (
@@ -1011,7 +1179,7 @@ async function optimizeAndSaveImage(base64Data, fileName) {
     throw new Error("Invalid image file");
   }
 
-  
+
   const useWebP = fileName.endsWith(".webp");
   const finalFileName = useWebP
     ? fileName
@@ -1025,7 +1193,7 @@ async function optimizeAndSaveImage(base64Data, fileName) {
   );
 
   if (useWebP) {
-    
+
     await sharp(buffer)
       .resize(512, 512, {
         fit: "inside",
@@ -1034,7 +1202,7 @@ async function optimizeAndSaveImage(base64Data, fileName) {
       .webp({ quality: 80 })
       .toFile(filePath);
   } else {
-    
+
     await sharp(buffer)
       .resize(512, 512, {
         fit: "inside",
@@ -1062,12 +1230,12 @@ function deleteImageFile(avatarPath) {
 }
 
 async function optimizeAndSaveUserImage(base64Data, fileName) {
-  
+
   if (!base64Data || typeof base64Data !== "string") {
     throw new Error("Invalid image data");
   }
 
-  
+
   const sizeInBytes = (base64Data.length * 3) / 4;
   if (sizeInBytes > 2 * 1024 * 1024) {
     throw new Error("Image too large. Maximum size: 2MB");
@@ -1075,7 +1243,7 @@ async function optimizeAndSaveUserImage(base64Data, fileName) {
 
   const buffer = Buffer.from(base64Data, "base64");
 
-  
+
   try {
     const metadata = await sharp(buffer).metadata();
     if (
@@ -1088,7 +1256,7 @@ async function optimizeAndSaveUserImage(base64Data, fileName) {
     throw new Error("Invalid image file");
   }
 
-  
+
   const usersDir = path.join(__dirname, "public", "assets", "users");
   if (!fs.existsSync(usersDir)) {
     fs.mkdirSync(usersDir, { recursive: true });
@@ -1096,13 +1264,13 @@ async function optimizeAndSaveUserImage(base64Data, fileName) {
 
   const filePath = path.join(usersDir, fileName);
 
-  
+
   await sharp(buffer)
     .resize(200, 200, {
       fit: "cover",
       position: "center",
     })
-    .png({ compressionLevel: 9 })
+    .webp({ quality: 85 })
     .toFile(filePath);
 
   return `/assets/users/${fileName}`;
@@ -1112,7 +1280,8 @@ function deleteUserImageFile(avatarPath) {
   if (
     avatarPath &&
     avatarPath.startsWith("/assets/users/") &&
-    avatarPath !== "/assets/users/default.png"
+    avatarPath !== "/assets/users/default.png" &&
+    !avatarPath.endsWith("/default.png")
   ) {
     const filePath = path.join(__dirname, "public", avatarPath);
 
@@ -1170,7 +1339,7 @@ app.post("/api/upload-bot", async (request, reply) => {
         .filter((url) => typeof url === "string")
         .map((url) => {
           const trimmedUrl = url.trim();
-          // Basic URL validation
+
           try {
             new URL(trimmedUrl);
             return trimmedUrl;
@@ -1198,12 +1367,25 @@ app.post("/api/upload-bot", async (request, reply) => {
   const user = users[id];
   const bot_id = (Math.max(-1, ...Object.keys(bots).map(Number)) + 1).toString();
 
+  // Handle avatar - save as WebP file instead of base64
+  let avatarPath = "/assets/bots/noresponse.png";
+  if (avatar && avatar.startsWith("data:image/")) {
+    try {
+      const base64Data = avatar.split(",")[1];
+      const fileName = `${bot_id}.webp`;
+      avatarPath = await optimizeAndSaveImage(base64Data, fileName);
+    } catch (error) {
+      console.error("Error saving avatar:", error);
+      return reply.code(400).send({ error: "Failed to save avatar: " + error.message });
+    }
+  }
+
   bots[bot_id] = {
     name: sanitizedName,
     description: sanitizedDescription,
     author: user.name,
     status,
-    avatar: avatar || "/assets/bots/noresponse.png",
+    avatar: avatarPath,
     sys_pmt: sanitizedSysPmt,
     greeting: sanitizedGreeting,
     chats: sanitizedChats,
@@ -1248,10 +1430,10 @@ app.get("/api/chats", async (request, reply) => {
   userConversations.forEach((id) => {
     if (conversations[id]) {
       if (includeFull) {
-        // Include full chat data for backward compatibility
+        
         chats[id] = conversations[id];
       } else {
-        // Only include metadata, not full messages
+        
         chats[id] = {
           id: conversations[id].id,
           with: conversations[id].with,
@@ -1265,7 +1447,7 @@ app.get("/api/chats", async (request, reply) => {
   return { chats };
 });
 
-// New endpoint to get full chat with messages
+
 app.get("/api/chats/:id", async (request, reply) => {
   try {
     await auth_middleware(request, reply);
@@ -1279,7 +1461,7 @@ app.get("/api/chats/:id", async (request, reply) => {
     fs.readFileSync(path.join(__dirname, "data", "users.json"), "utf-8")
   );
 
-  // Check if user owns this conversation
+  
   if (!users[userId].conversations.includes(chatId)) {
     return reply.code(403).send({ error: "Access denied" });
   }
@@ -1326,15 +1508,15 @@ app.post("/api/chats", async (request, reply) => {
   let id = providedId;
   let isUpdate = false;
 
-  // Check if this is an update to existing conversation
+  
   if (id && conversations[id]) {
-    // Verify user owns this conversation
+    
     if (!users[userId].conversations.includes(id)) {
       return reply.code(403).send({ error: "Access denied" });
     }
     isUpdate = true;
   } else {
-    // Create new conversation
+    
     id = crypto.randomBytes(16).toString("hex");
   }
 
@@ -1351,7 +1533,7 @@ app.post("/api/chats", async (request, reply) => {
     JSON.stringify(conversations, null, 2)
   );
 
-  // Add to user's conversation list if it's a new chat
+  
   if (!isUpdate && !users[userId].conversations.includes(id)) {
     users[userId].conversations.push(id);
     fs.writeFileSync(
@@ -1500,9 +1682,9 @@ app.put("/api/profile/update", async (request, reply) => {
       users[userId].bio = sanitizedBio;
     }
 
-    
+
     if (avatar && avatar.startsWith("data:image/")) {
-      
+
       if (
         users[userId].avatar &&
         users[userId].avatar !== "/assets/users/default.png"
@@ -1510,9 +1692,9 @@ app.put("/api/profile/update", async (request, reply) => {
         deleteUserImageFile(users[userId].avatar);
       }
 
-      
+
       const base64Data = avatar.split(",")[1];
-      const fileName = `${userId}.png`;
+      const fileName = `${userId}.webp`;
       const avatarPath = await optimizeAndSaveUserImage(base64Data, fileName);
       users[userId].avatar = avatarPath;
     }

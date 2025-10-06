@@ -329,7 +329,6 @@
             }
         }
     </style>
-    <script src="assets/js/api.js"></script>
 </head>
 <body>
 
@@ -528,19 +527,36 @@
             });
         }
 
+        // Load NSFW model on page load
+        window.addEventListener('load', () => {
+            window.nsfwChecker.loadModel();
+        });
+
         document.getElementById('maker-form').addEventListener('submit', async function(e) {
             e.preventDefault();
             if (!username) {
-                alert('User data not loaded.');
+                showNotification('User data not loaded.', 'error');
                 return;
             }
             const avatarInput = document.getElementById('avatar');
             if (avatarInput.files[0]) {
                 try {
+                    // Check NSFW before processing
+                    showNotification('Checking image...', 'info');
+                    const nsfwResult = await window.nsfwChecker.checkFile(avatarInput.files[0]);
+
+                    if (!nsfwResult.safe) {
+                        showNotification(
+                            `❌ Image Upload Blocked\n\n${nsfwResult.reason}\n\nPlease choose a different image that complies with our content policy.`,
+                            'error'
+                        );
+                        return;
+                    }
+
                     const resizedImage = await resizeImage(avatarInput.files[0], 512, 512);
                     submitForm(resizedImage);
                 } catch (error) {
-                    alert('Error processing image: ' + error.message);
+                    showNotification('Error processing image: ' + error.message, 'error');
                 }
             } else {
                 submitForm('');
@@ -548,6 +564,9 @@
         });
 
         async function submitForm(avatarData) {
+            const submitBtn = document.querySelector('.submit-btn');
+            const originalBtnText = submitBtn.textContent;
+
             const formData = {
                 name: document.getElementById('name').value.trim(),
                 description: document.getElementById('description').value.trim(),
@@ -566,9 +585,14 @@
             }
 
             try {
+                // Disable button and show loading state
+                submitBtn.disabled = true;
+                submitBtn.textContent = editingBotId ? 'Updating...' : 'Creating...';
+
                 if (editingBotId) {
                     await api.updateBot(editingBotId, formData);
-                    alert('Bot updated successfully!');
+                    showNotification('Bot updated successfully!', 'success');
+                    setTimeout(() => window.location.href = '/', 1000);
                 } else {
                     const response = await fetch('/api/upload-bot', {
                         method: 'POST',
@@ -581,14 +605,77 @@
                     });
                     const result = await response.json();
                     if (!response.ok) {
-                        alert(result.error || 'Failed to create bot.');
+                        // Enhanced error display
+                        if (result.error && result.error.includes('inappropriate')) {
+                            showNotification(
+                                '❌ Image Upload Failed\n\n' + result.error + '\n\nPlease choose a different image.',
+                                'error'
+                            );
+                        } else {
+                            showNotification(result.error || 'Failed to create bot.', 'error');
+                        }
+                        submitBtn.disabled = false;
+                        submitBtn.textContent = originalBtnText;
                         return;
                     }
-                    alert('Bot created successfully!');
+                    showNotification('Bot created successfully!', 'success');
+                    setTimeout(() => window.location.href = '/', 1000);
                 }
-                window.location.href = '/';
             } catch (error) {
-                alert('Error saving bot.');
+                console.error('Error saving bot:', error);
+                showNotification('Error saving bot: ' + error.message, 'error');
+                submitBtn.disabled = false;
+                submitBtn.textContent = originalBtnText;
+            }
+        }
+
+        function showNotification(message, type = 'info') {
+            // Remove any existing notifications
+            const existingNotif = document.querySelector('.notification-overlay');
+            if (existingNotif) {
+                existingNotif.remove();
+            }
+
+            // Create notification overlay
+            const overlay = document.createElement('div');
+            overlay.className = 'notification-overlay';
+            overlay.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.7);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 10000;
+            `;
+
+            const notification = document.createElement('div');
+            notification.className = 'notification';
+            notification.style.cssText = `
+                background: #464746;
+                color: ${type === 'error' ? '#d67676' : '#96d696'};
+                padding: 30px;
+                border-radius: 10px;
+                max-width: 500px;
+                width: 90%;
+                box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+                text-align: center;
+                white-space: pre-line;
+                line-height: 1.6;
+                border: 2px solid ${type === 'error' ? '#d67676' : '#96d696'};
+            `;
+            notification.textContent = message;
+
+            overlay.appendChild(notification);
+            document.body.appendChild(overlay);
+
+            // Auto-remove on click or after delay
+            overlay.onclick = () => overlay.remove();
+            if (type === 'success') {
+                setTimeout(() => overlay.remove(), 3000);
             }
         }
 
@@ -604,6 +691,12 @@
             }
         }
     </script>
+
+    <!-- Load NSFW detection libraries -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.11.0/dist/tf.min.js"></script>
+    <script src="https://unpkg.com/nsfwjs@2.4.2/dist/nsfwjs.min.js"></script>
+    <script src="assets/js/nsfw-check.js"></script>
+    <script src="assets/js/api.js"></script>
 
 </body>
 </html>

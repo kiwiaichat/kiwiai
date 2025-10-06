@@ -783,7 +783,7 @@
                 };
             }
 
-            
+
             async function handleProfileFormSubmit(e) {
                 e.preventDefault();
 
@@ -791,26 +791,44 @@
                 const avatarFile = document.getElementById('edit-avatar').files[0];
                 const submitBtn = e.target.querySelector('button[type="submit"]');
 
-                
+
                 submitBtn.disabled = true;
                 submitBtn.textContent = 'Saving...';
 
                 let avatarData = null;
                 if (avatarFile) {
-                    
+                    // Check NSFW before processing
+                    submitBtn.textContent = 'Checking image...';
+
+                    try {
+                        const nsfwResult = await window.nsfwChecker.checkFile(avatarFile);
+                        if (!nsfwResult.safe) {
+                            showProfileNotification(
+                                `❌ Avatar Upload Blocked\n\n${nsfwResult.reason}\n\nPlease choose a different image that complies with our content policy.`,
+                                'error'
+                            );
+                            submitBtn.disabled = false;
+                            submitBtn.textContent = 'Save Changes';
+                            return;
+                        }
+                    } catch (error) {
+                        console.error('Error checking NSFW:', error);
+                        // Continue anyway if check fails
+                    }
+
                     submitBtn.textContent = 'Compressing image...';
 
                     try {
                         avatarData = await compressImage(avatarFile);
                         if (!avatarData) {
-                            alert('Error processing image. Please try a different image.');
+                            showProfileNotification('Error processing image. Please try a different image.', 'error');
                             submitBtn.disabled = false;
                             submitBtn.textContent = 'Save Changes';
                             return;
                         }
                     } catch (error) {
                         console.error('Error compressing image:', error);
-                        alert('Error processing image. Please try again.');
+                        showProfileNotification('Error processing image. Please try again.', 'error');
                         submitBtn.disabled = false;
                         submitBtn.textContent = 'Save Changes';
                         return;
@@ -836,23 +854,81 @@
                     const data = await response.json();
 
                     if (response.ok) {
-                        alert('Profile updated successfully!');
+                        showProfileNotification('Profile updated successfully!', 'success');
                         closeEditProfile();
-                        
-                        window.location.reload();
+
+                        setTimeout(() => window.location.reload(), 1000);
                     } else {
-                        alert(data.error || 'Error updating profile.');
+                        // Enhanced error display for NSFW content
+                        if (data.error && data.error.includes('inappropriate')) {
+                            showProfileNotification(
+                                '❌ Avatar Upload Failed\n\n' + data.error + '\n\nPlease choose a different image.',
+                                'error'
+                            );
+                        } else {
+                            showProfileNotification(data.error || 'Error updating profile.', 'error');
+                        }
                     }
                 } catch (error) {
                     console.error('Error updating profile:', error);
                     if (error.message.includes('Failed to fetch') || error.name === 'TypeError') {
-                        alert('Upload failed - image may be too large. Please try a smaller image.');
+                        showProfileNotification('Upload failed - image may be too large. Please try a smaller image.', 'error');
                     } else {
-                        alert('Error updating profile. Please try again.');
+                        showProfileNotification('Error updating profile. Please try again.', 'error');
                     }
                 } finally {
                     submitBtn.disabled = false;
                     submitBtn.textContent = 'Save Changes';
+                }
+            }
+
+            function showProfileNotification(message, type = 'info') {
+                // Remove any existing notifications
+                const existingNotif = document.querySelector('.profile-notification-overlay');
+                if (existingNotif) {
+                    existingNotif.remove();
+                }
+
+                // Create notification overlay
+                const overlay = document.createElement('div');
+                overlay.className = 'profile-notification-overlay';
+                overlay.style.cssText = `
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    background: rgba(0, 0, 0, 0.7);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    z-index: 10000;
+                `;
+
+                const notification = document.createElement('div');
+                notification.className = 'profile-notification';
+                notification.style.cssText = `
+                    background: #464746;
+                    color: ${type === 'error' ? '#d67676' : '#96d696'};
+                    padding: 30px;
+                    border-radius: 10px;
+                    max-width: 500px;
+                    width: 90%;
+                    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+                    text-align: center;
+                    white-space: pre-line;
+                    line-height: 1.6;
+                    border: 2px solid ${type === 'error' ? '#d67676' : '#96d696'};
+                `;
+                notification.textContent = message;
+
+                overlay.appendChild(notification);
+                document.body.appendChild(overlay);
+
+                // Auto-remove on click or after delay
+                overlay.onclick = () => overlay.remove();
+                if (type === 'success') {
+                    setTimeout(() => overlay.remove(), 3000);
                 }
             }
 
@@ -909,103 +985,123 @@
                 }
             }
 
-            
-            const profile = window.location.pathname.split('/')[2];
-            if (profile) {
-                fetch(`/api/profile/${profile}`)
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.error) {
-                            console.error(data.error);
-                            return;
-                        }
-                        const profileDiv = document.querySelector('.profile');
-                        profileDiv.querySelector('img').src = data.avatar || '/assets/general/noresponse.png';
-                        document.getElementById('user-name').textContent = data.name;
-                        window.title = data.name + '\'s profile - KiwiAI';
-                        document.getElementById('user-description').textContent = data.bio || '';
-
-                        document.getElementById('bots-title').textContent = `${data.name}'s bots`;
-
-                        
-                        const loggedInUserId = localStorage.getItem('userId');
-                        if (loggedInUserId && (loggedInUserId === profile || loggedInUserId === data.id)) {
-                            currentProfileData = data;
-                            
-                            document.getElementById('auth-btn').style.display = 'none';
-                            document.getElementById('profile-dropdown').style.display = 'inline-block';
-                        }
-
-                        const cards = document.getElementById('cards');
-                        cards.innerHTML = '';
-                        data.bots.forEach(bot => {
-                            const card = document.createElement('div');
-                            card.className = 'card';
-
-                            const viewCount = typeof bot.views === 'number' ? bot.views : 0;
-                            const viewText = viewCount === 1 ? '1 view' : `${viewCount.toLocaleString()} views`;
-
-                            card.innerHTML = `
-                                <img src="${bot.avatar || '/assets/general/noresponse.png'}" alt="Bot Avatar" class="avatar">
-                                <span id="name">${bot.name}</span>
-                                <span id="description">${bot.description}</span>
-                                <span id="author">${bot.author}</span>
-                                <span id="views">${viewText}</span>
-                            `;
-                            // Enhanced mobile card interactions
-                            let touchStartTime = 0;
-                            let touchMoved = false;
-
-                            card.addEventListener('touchstart', (e) => {
-                                touchStartTime = Date.now();
-                                touchMoved = false;
-                                if (window.innerWidth <= 768) {
-                                    card.style.transform = 'translateY(-2px) scale(0.98)';
-                                }
-                            }, { passive: true });
-
-                            card.addEventListener('touchmove', () => {
-                                touchMoved = true;
-                                if (window.innerWidth <= 768) {
-                                    card.style.transform = '';
-                                }
-                            }, { passive: true });
-
-                            card.addEventListener('touchend', (e) => {
-                                if (window.innerWidth <= 768) {
-                                    card.style.transform = '';
-                                }
-
-                                const touchDuration = Date.now() - touchStartTime;
-                                if (!touchMoved && touchDuration < 300) {
-                                    handleCardClick();
-                                }
-                            }, { passive: true });
-
-                            card.addEventListener('click', () => {
-                                if (!('ontouchstart' in window)) {
-                                    handleCardClick();
-                                }
-                            });
-
-                            function handleCardClick() {
-                                const loggedInUserId = localStorage.getItem('userId');
-                                if (loggedInUserId && loggedInUserId === profile) {
-                                    window.location.href = `/maker?edit=${bot.avatar.split("/bots/")[1].split(".png")[0]}`;
-                                }
-                                else {
-                                    window.location.href = `/chat/${bot.avatar.split("/bots/")[1].split(".png")[0]}`;
-                                }
-                            }
-                            cards.appendChild(card);
-                        });
-                    })
-                    .catch(error => console.error('Error fetching profile:', error));
-            }
-
         </script>
 
     </div>
+
+    <script src="/assets/js/skeleton.js"></script>
+    <script src="/assets/js/card.js"></script>
+    <script>
+        // This script runs after skeleton.js is loaded
+        const profile = window.location.pathname.split('/')[2];
+        if (profile) {
+            // Show skeleton loaders
+            const cards = document.getElementById('cards');
+            showSkeletons(cards, 6);
+
+            // Include auth headers to see private bots
+            const headers = {};
+            const authKey = localStorage.getItem('authKey');
+            const currentUserId = localStorage.getItem('userId');
+            if (authKey && currentUserId) {
+                headers['x-auth-key'] = authKey;
+                headers['x-user-id'] = currentUserId;
+            }
+
+            fetch(`/api/profile/${profile}`, { headers })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        console.error(data.error);
+                        return;
+                    }
+                    const profileDiv = document.querySelector('.profile');
+                    profileDiv.querySelector('img').src = data.avatar || '/assets/general/noresponse.png';
+                    document.getElementById('user-name').textContent = data.name;
+                    window.title = data.name + '\'s profile - KiwiAI';
+                    document.getElementById('user-description').textContent = data.bio || '';
+
+                    document.getElementById('bots-title').textContent = `${data.name}'s bots`;
+
+
+                    const loggedInUserId = localStorage.getItem('userId');
+                    if (loggedInUserId && (loggedInUserId === profile || loggedInUserId === data.id)) {
+                        currentProfileData = data;
+
+                        document.getElementById('auth-btn').style.display = 'none';
+                        document.getElementById('profile-dropdown').style.display = 'inline-block';
+                    }
+
+                    const cards = document.getElementById('cards');
+                    cards.innerHTML = '';
+                    data.bots.forEach(bot => {
+                        const card = document.createElement('div');
+                        card.className = 'card';
+
+                        const viewCount = typeof bot.views === 'number' ? bot.views : 0;
+                        const viewText = viewCount === 1 ? '1 view' : `${viewCount.toLocaleString()} views`;
+
+                        // Add private badge if bot is private
+                        const privateBadge = bot.status === 'private' ? '<span class="private-badge">🔒 Private</span>' : '';
+
+                        card.innerHTML = `
+                            <img src="${bot.avatar || '/assets/general/noresponse.png'}" alt="Bot Avatar" class="avatar">
+                            <span id="name">${bot.name}${privateBadge}</span>
+                            <span id="description">${bot.description}</span>
+                            <span id="author">${bot.author}</span>
+                            <span id="views">${viewText}</span>
+                        `;
+                        // Enhanced mobile card interactions
+                        let touchStartTime = 0;
+                        let touchMoved = false;
+
+                        card.addEventListener('touchstart', (e) => {
+                            touchStartTime = Date.now();
+                            touchMoved = false;
+                            if (window.innerWidth <= 768) {
+                                card.style.transform = 'translateY(-2px) scale(0.98)';
+                            }
+                        }, { passive: true });
+
+                        card.addEventListener('touchmove', () => {
+                            touchMoved = true;
+                            if (window.innerWidth <= 768) {
+                                card.style.transform = '';
+                            }
+                        }, { passive: true });
+
+                        card.addEventListener('touchend', (e) => {
+                            if (window.innerWidth <= 768) {
+                                card.style.transform = '';
+                            }
+
+                            const touchDuration = Date.now() - touchStartTime;
+                            if (!touchMoved && touchDuration < 300) {
+                                handleCardClick();
+                            }
+                        }, { passive: true });
+
+                        card.addEventListener('click', () => {
+                            if (!('ontouchstart' in window)) {
+                                handleCardClick();
+                            }
+                        });
+
+                        function handleCardClick() {
+                            const loggedInUserId = localStorage.getItem('userId');
+                            if (loggedInUserId && loggedInUserId === profile) {
+                                window.location.href = `/maker?edit=${bot.id}`;
+                            }
+                            else {
+                                window.location.href = `/chat/${bot.id}`;
+                            }
+                        }
+                        cards.appendChild(card);
+                    });
+                })
+                .catch(error => console.error('Error fetching profile:', error));
+        }
+    </script>
 
     <!-- Edit Profile Modal -->
     <div class="edit-profile-modal" id="edit-profile-modal">
@@ -1036,7 +1132,16 @@
         </div>
     </div>
 
-    <script src="/assets/js/card.js"></script>
+    <!-- Load NSFW detection libraries -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.11.0/dist/tf.min.js"></script>
+    <script src="https://unpkg.com/nsfwjs@2.4.2/dist/nsfwjs.min.js"></script>
+    <script src="/assets/js/nsfw-check.js"></script>
+    <script>
+        // Load NSFW model on page load
+        window.addEventListener('load', () => {
+            window.nsfwChecker.loadModel();
+        });
+    </script>
 </body>
 
 </html>

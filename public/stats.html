@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Statistics - KiwiAI</title>
+    <link rel="icon" type="image/x-icon" href="/assets/general/favicon.png">
+    <style>
+        :root {
+            --color-primary: #96d696;
+            --color-primary-hover: #7abf7a;
+            --color-bg-main: #060806;
+            --color-bg-card: #464746;
+            --color-text-primary: rgb(204, 218, 206);
+            --color-text-accent: #96d696;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, var(--color-bg-main) 0%, #0a0c0a 100%);
+            color: var(--color-text-primary);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        #nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 20px;
+            margin-bottom: 30px;
+        }
+
+        #title {
+            cursor: pointer;
+            font-size: 24px;
+        }
+
+        #kiwi {
+            color: var(--color-text-accent);
+        }
+
+        .back-btn {
+            background-color: var(--color-primary);
+            color: var(--color-bg-main);
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .back-btn:hover {
+            background-color: var(--color-primary-hover);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 40px;
+            color: var(--color-text-accent);
+            font-size: 36px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+
+        .stat-card {
+            background: var(--color-bg-card);
+            padding: 30px;
+            border-radius: 10px;
+            border: 1px solid rgba(150, 214, 150, 0.1);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15);
+            transition: transform 0.2s;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-4px);
+            border-color: var(--color-primary);
+        }
+
+        .stat-label {
+            font-size: 14px;
+            color: #888;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .stat-value {
+            font-size: 48px;
+            font-weight: bold;
+            color: var(--color-text-accent);
+            line-height: 1;
+        }
+
+        .stat-description {
+            font-size: 12px;
+            color: #aaa;
+            margin-top: 10px;
+        }
+
+        .chart-container {
+            background: var(--color-bg-card);
+            padding: 30px;
+            border-radius: 10px;
+            border: 1px solid rgba(150, 214, 150, 0.1);
+            margin-bottom: 40px;
+        }
+
+        .chart-title {
+            font-size: 20px;
+            margin-bottom: 20px;
+            color: var(--color-text-accent);
+        }
+
+        canvas {
+            max-width: 100%;
+            height: auto !important;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 60px;
+            font-size: 24px;
+            color: var(--color-text-accent);
+        }
+
+        .error {
+            text-align: center;
+            padding: 60px;
+            color: #d67676;
+            font-size: 18px;
+        }
+
+        .last-updated {
+            text-align: center;
+            color: #888;
+            font-size: 12px;
+            margin-top: 20px;
+        }
+
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 28px;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .stat-value {
+                font-size: 36px;
+            }
+
+            .chart-container {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="nav">
+        <h2 id="title" onclick="window.location.href = '/'"><span id="kiwi">kiwi</span> ai</h2>
+        <a href="/" class="back-btn">← Back to Home</a>
+    </div>
+
+    <div class="container">
+        <h1>Kiwi Statistics</h1>
+
+        <div id="content">
+            <div class="loading">Loading statistics...</div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script>
+        async function loadStats() {
+            try {
+                const response = await fetch('/api/stats');
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || 'Failed to load stats');
+                }
+
+                displayStats(data);
+            } catch (error) {
+                console.error('Error loading stats:', error);
+                document.getElementById('content').innerHTML = `
+                    <div class="error">
+                        ❌ Failed to load statistics<br>
+                        <small>${error.message}</small>
+                    </div>
+                `;
+            }
+        }
+
+        function displayStats(data) {
+            const content = document.getElementById('content');
+
+            content.innerHTML = `
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-label">Total Users</div>
+                        <div class="stat-value">${data.totalUsers.toLocaleString()}</div>
+                        <div class="stat-description">Registered accounts</div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-label">Total Bots</div>
+                        <div class="stat-value">${data.totalBots.toLocaleString()}</div>
+                        <div class="stat-description">${data.publicBots} public, ${data.privateBots} private</div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-label">Daily Active Users</div>
+                        <div class="stat-value">${data.dailyActiveUsers.toLocaleString()}</div>
+                        <div class="stat-description">Active today</div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-label">7-Day Average</div>
+                        <div class="stat-value">${data.averageDailyUsers.toLocaleString()}</div>
+                        <div class="stat-description">Average daily active users</div>
+                    </div>
+                </div>
+
+                <div class="chart-container">
+                    <div class="chart-title">Daily Active Users (Last 30 Days)</div>
+                    <canvas id="dailyUsersChart"></canvas>
+                </div>
+
+                <div class="last-updated">
+                    Last updated: ${new Date(data.lastUpdated).toLocaleString()}
+                </div>
+            `;
+
+            // Create chart
+            const ctx = document.getElementById('dailyUsersChart').getContext('2d');
+            const dates = Object.keys(data.dailyUserData);
+            const values = Object.values(data.dailyUserData);
+
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: dates.map(date => {
+                        const d = new Date(date);
+                        return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                    }),
+                    datasets: [{
+                        label: 'Active Users',
+                        data: values,
+                        borderColor: '#96d696',
+                        backgroundColor: 'rgba(150, 214, 150, 0.1)',
+                        tension: 0.4,
+                        fill: true,
+                        pointBackgroundColor: '#96d696',
+                        pointBorderColor: '#060806',
+                        pointBorderWidth: 2,
+                        pointRadius: 4,
+                        pointHoverRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    aspectRatio: 2.5,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            backgroundColor: '#464746',
+                            titleColor: '#96d696',
+                            bodyColor: '#fff',
+                            borderColor: '#96d696',
+                            borderWidth: 1,
+                            padding: 12,
+                            displayColors: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                color: '#888',
+                                precision: 0
+                            },
+                            grid: {
+                                color: 'rgba(150, 214, 150, 0.1)'
+                            }
+                        },
+                        x: {
+                            ticks: {
+                                color: '#888',
+                                maxRotation: 45,
+                                minRotation: 45
+                            },
+                            grid: {
+                                color: 'rgba(150, 214, 150, 0.1)'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Load stats on page load
+        loadStats();
+
+        // Refresh every 5 minutes
+        setInterval(loadStats, 5 * 60 * 1000);
+    </script>
+</body>
+</html>

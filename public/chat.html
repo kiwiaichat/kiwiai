@@ -59,6 +59,8 @@
             border: 3px solid rgba(150, 214, 150, 0.3);
             transition: all 0.3s ease;
             box-shadow: 0 4px 15px rgba(150, 214, 150, 0.2);
+            object-fit: cover;
+            flex-shrink: 0;
         }
 
         .avatar:hover {
@@ -577,6 +579,8 @@
             border-radius: 50%;
             border: 2px solid rgba(150, 214, 150, 0.3);
             transition: all 0.2s ease;
+            object-fit: cover;
+            flex-shrink: 0;
         }
 
         .pfp:hover {
@@ -1123,6 +1127,7 @@
                 <div class="dropdown-menu" id="dropdown-menu">
                     <div class="dropdown-item">
                         <button class="dropdown-button" onclick="createNewChat()">New Chat</button>
+                        <button class="dropdown-button secondary" onclick="branchCurrentChat()">Branch Chat</button>
                         <button class="dropdown-button secondary" onclick="clearCurrentChat()">Clear Current Chat</button>
                     </div>
 
@@ -1149,11 +1154,11 @@
                     </div>
                     <div class="dropdown-item">
                         <label class="dropdown-label">AI Provider</label>
-                        <input type="text" class="dropdown-input" id="ai-provider" placeholder="https:
+                        <input type="text" class="dropdown-input" id="ai-provider" placeholder="hyper or https://your-api-url">
                     </div>
                     <div class="dropdown-item">
                         <label class="dropdown-label">Model</label>
-                        <input type="text" class="dropdown-input" id="ai-model" placeholder="mistral, gemini, gpt-5-nano">
+                        <input type="text" class="dropdown-input" id="ai-model" placeholder="auto (for hyper) or custom model">
                     </div>
                     <div class="dropdown-item">
                         <label class="dropdown-label">Max Tokens</label>
@@ -1198,6 +1203,7 @@
         </div>
     </div>
 
+    <script src="/assets/js/hyper.js"></script>
     <script src="/assets/js/api.js"></script>
     <script src="/assets/js/lorebook.js"></script>
     <script>
@@ -1964,6 +1970,50 @@
             showToast('Chat cleared!', 'success');
         }
 
+        async function branchCurrentChat() {
+            if (!currentConversation) {
+                showToast('No current chat to branch.', 'warning');
+                return;
+            }
+
+            if (!messages || messages.length === 0) {
+                showToast('Cannot branch an empty chat.', 'warning');
+                return;
+            }
+
+            try {
+                const botId = window.location.pathname.split('/').pop();
+                const branchChatId = `${api.userId}_${botId}_${Date.now()}_branch`;
+
+                // Create a deep copy of the current messages
+                const branchedMessages = JSON.parse(JSON.stringify(messages));
+
+                const branchedConversation = {
+                    id: branchChatId,
+                    with: botId,
+                    messages: branchedMessages,
+                    createdAt: new Date().toISOString(),
+                    branchedFrom: currentConversation.id
+                };
+
+                await api.saveChat(branchedConversation.id, botId, branchedMessages);
+
+                currentConversation = branchedConversation;
+                messages = branchedMessages;
+
+                renderMessages();
+                loadChatHistory();
+
+                hamburgerMenu.classList.remove('active');
+                dropdownMenu.classList.remove('active');
+
+                showToast('Chat branched! You can now create a different timeline.', 'success');
+            } catch (error) {
+                console.error('Error branching chat:', error);
+                showToast('Error branching chat.', 'error');
+            }
+        }
+
         function exportChat() {
             if (!currentConversation || !messages.length) {
                 showToast('No chat to export.', 'warning');
@@ -2210,10 +2260,10 @@
             }
         }
 
-        
+
         function loadApiConfig() {
-            const aiProvider = localStorage.getItem('aiProvider') || 'https://pollinations.ai/openai'
-            const aiModel = localStorage.getItem('aiModel') || 'pick a model gng :sob:';
+            const aiProvider = localStorage.getItem('aiProvider') || 'hyper'
+            const aiModel = localStorage.getItem('aiModel') || 'auto';
             const maxTokens = localStorage.getItem('maxTokens') || '1000';
             const apiKey = localStorage.getItem('apiKey') || '';
 
@@ -2243,10 +2293,22 @@
         }
 
 
-        loadData().then(() => {
-            loadChatHistory();
-            loadApiConfig(); 
-            setupScrollTracking(); 
+        // Initialize Hyper
+        window.hyper = new Hyper();
+        window.hyper.autoCheck().then(() => {
+            console.log('Hyper initialized with best model:', window.hyper.current_best_model);
+            loadData().then(() => {
+                loadChatHistory();
+                loadApiConfig();
+                setupScrollTracking();
+            });
+        }).catch((error) => {
+            console.error('Failed to initialize Hyper:', error);
+            loadData().then(() => {
+                loadChatHistory();
+                loadApiConfig();
+                setupScrollTracking();
+            });
         });
     </script>
 

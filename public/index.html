@@ -537,9 +537,6 @@
     #description {
         font-size: 13px;
         line-height: 1.4;
-        display: -webkit-box !important;
-        -webkit-box-orient: vertical !important;
-        overflow: hidden !important;
     }
 
     #author {
@@ -580,9 +577,6 @@
 
     #description {
         font-size: 12px;
-        display: -webkit-box !important;
-        -webkit-box-orient: vertical !important;
-        overflow: hidden !important;
     }
 
 }
@@ -660,7 +654,9 @@
         </div>
         
         <center>
-        <h3>wisdom: <span id="wisdom"></span></h3>
+            <p  style="display: none;" id="wisdom"></p>
+           <a href="https://discord.gg/Wcpnm8psjq" target="_blank" style="text-decoration:none; color:#96d696; display: block; text-align: center;">Click me to join the Discord if you have any question, bugs to report or just wanna see changes</a>
+
         </center>
 
         <br>
@@ -697,6 +693,7 @@
         <div id="cards">
         </div>
     </div>
+
 
     <script>
         const wisdom = [
@@ -784,12 +781,16 @@
                     headers['x-auth-key'] = authKey;
                     headers['x-user-id'] = userId;
                 }
-                const response = await fetch(`/api/bots?${query}`, { headers });
-                const data = await response.json();
                 const cards = document.getElementById('cards');
                 if (offset === 0) {
                     cards.innerHTML = '';
                     displayedBotIds.clear();
+                    showSkeletons(cards, 6);
+                }
+                const response = await fetch(`/api/bots?${query}`, { headers });
+                const data = await response.json();
+                if (offset === 0) {
+                    cards.innerHTML = '';
                 }
                 const currentUserId = localStorage.getItem('userId');
 
@@ -840,10 +841,13 @@
                     const viewCount = typeof bot.views === 'number' ? bot.views : 0;
                     const viewText = viewCount === 1 ? '1 view' : `${viewCount.toLocaleString()} views`;
 
+                    // Add private badge if bot is private
+                    const privateBadge = bot.status === 'private' ? '<span class="private-badge">🔒 Private</span>' : '';
+
                     card.innerHTML = `
                         ${botActions}
                         <img src="${bot.avatar || '/assets/general/noresponse.png'}" alt="Bot Avatar" class="avatar">
-                        <span id="name">${bot.name}</span>
+                        <span id="name">${bot.name}${privateBadge}</span>
                         <span id="description">${bot.description}</span>
                         <div class="tags">${tagsHtml}</div>
                         <span id="author" onclick="window.location.href = '/profile/${bot.author}'">${bot.author}</span>
@@ -1052,11 +1056,14 @@
             }
         }
 
+    </script>
+
+    <script src="/assets/js/skeleton.js"></script>
+    <script src="/assets/js/card.js"></script>
+    <script>
         fetchTags();
         loadBots();
         loadRecentBots();
     </script>
-
-    <script src="/assets/js/card.js"></script>
 </body>
 </html>
