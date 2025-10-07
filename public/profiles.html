@@ -70,13 +70,14 @@
         }
 
         #cards {
-            display: flex;
-            flex-wrap: wrap;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
             gap: var(--spacing-lg);
             padding: var(--spacing-xl);
             margin-bottom: var(--spacing-xl);
-            justify-content: center;
-            align-items: start;
+            max-width: 1400px;
+            margin-left: auto;
+            margin-right: auto;
         }
 
 
@@ -465,9 +466,8 @@
 
             #cards {
                 padding: 10px;
-                grid-template-columns: repeat(auto-fill, 300px);
-                gap: 20px;
-                justify-items: center;
+                grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+                gap: 12px;
             }
 
 

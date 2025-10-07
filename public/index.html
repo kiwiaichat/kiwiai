@@ -126,15 +126,16 @@
         }
 
 
-        
+
         #cards {
-            display: flex;
-            flex-wrap: wrap;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
             gap: var(--spacing-lg);
             padding: var(--spacing-xl);
             margin-bottom: var(--spacing-xl);
-            justify-content: center;
-            align-items: start;
+            max-width: 1400px;
+            margin-left: auto;
+            margin-right: auto;
         }
 
         #recents {
@@ -146,8 +147,16 @@
             display: flex;
             gap: var(--spacing-lg);
             overflow-x: auto;
+            overflow-y: hidden;
             padding-bottom: var(--spacing-sm);
-            justify-content: center;
+            justify-content: flex-start;
+            scroll-behavior: smooth;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        #recents-cards .card {
+            flex: 0 0 300px;
+            min-width: 300px;
         }
 
         #recents-cards::-webkit-scrollbar {
@@ -491,6 +500,10 @@
         max-width: 300px;
     }
 
+    #cards {
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    }
+
     #search {
         font-size: var(--font-size-base);
         height: 44px;
@@ -570,6 +583,10 @@
         height: 30px;
     }
 
+    #cards {
+        grid-template-columns: 1fr;
+        padding: 0 10px;
+    }
 
     #name {
         font-size: 15px;

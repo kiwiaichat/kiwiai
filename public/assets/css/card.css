@@ -282,7 +282,7 @@
         margin: 5px;
         padding: 8px;
         height: 320px;
-        max-width: calc(50vw - 15px);
+        width: 100%;
     }
 
     #name {
