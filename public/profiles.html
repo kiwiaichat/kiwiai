@@ -797,11 +797,24 @@
 
                 let avatarData = null;
                 if (avatarFile) {
-                    // Check NSFW before processing
+                    // Check NSFW via backend API
                     submitBtn.textContent = 'Checking image...';
 
                     try {
-                        const nsfwResult = await window.nsfwChecker.checkFile(avatarFile);
+                        const formData = new FormData();
+                        formData.append('file', avatarFile);
+
+                        const nsfwResponse = await fetch('/api/check-nsfw', {
+                            method: 'POST',
+                            body: formData
+                        });
+
+                        if (!nsfwResponse.ok) {
+                            throw new Error('Failed to check image');
+                        }
+
+                        const nsfwResult = await nsfwResponse.json();
+
                         if (!nsfwResult.safe) {
                             showProfileNotification(
                                 `❌ Avatar Upload Blocked\n\n${nsfwResult.reason}\n\nPlease choose a different image that complies with our content policy.`,
@@ -813,7 +826,10 @@
                         }
                     } catch (error) {
                         console.error('Error checking NSFW:', error);
-                        // Continue anyway if check fails
+                        showProfileNotification('Error checking image. Please try again.', 'error');
+                        submitBtn.disabled = false;
+                        submitBtn.textContent = 'Save Changes';
+                        return;
                     }
 
                     submitBtn.textContent = 'Compressing image...';
@@ -1132,16 +1148,6 @@
         </div>
     </div>
 
-    <!-- Load NSFW detection libraries -->
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.11.0/dist/tf.min.js"></script>
-    <script src="https://unpkg.com/nsfwjs@2.4.2/dist/nsfwjs.min.js"></script>
-    <script src="/assets/js/nsfw-check.js"></script>
-    <script>
-        // Load NSFW model on page load
-        window.addEventListener('load', () => {
-            window.nsfwChecker.loadModel();
-        });
-    </script>
 </body>
 
 </html>

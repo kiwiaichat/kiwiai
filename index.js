@@ -4,12 +4,78 @@ const fs = require("fs");
 const crypto = require("crypto");
 const sharp = require("sharp");
 const { HttpsProxyAgent } = require('https-proxy-agent');
+const tf = require('@tensorflow/tfjs');
+const fetch = require('node-fetch');
+const { createCanvas, loadImage } = require('canvas');
 const app = fastify({ logger: false });
+
+let nsfwModel = null;
+const NSFW_CLASSES = ['NSFW', 'REGULAR'];
+
+async function loadNSFWModel() {
+  if (nsfwModel) return nsfwModel;
+
+  try {
+    console.log('Loading NSFW detection model...');
+
+    const modelDir = path.join(__dirname, 'glitch-network-nsfw-detector');
+    const modelJsonPath = path.join(modelDir, 'model.json');
+
+    
+    const customHandler = {
+      load: async () => {
+        
+        const modelData = JSON.parse(fs.readFileSync(modelJsonPath, 'utf8'));
+
+        
+        const weightsManifest = modelData.weightsManifest;
+        const weightSpecs = [];
+        const weightData = [];
+
+        for (const group of weightsManifest) {
+          weightSpecs.push(...group.weights);
+          for (const weightPath of group.paths) {
+            const fullPath = path.join(modelDir, weightPath);
+            const buffer = fs.readFileSync(fullPath);
+            weightData.push(buffer);
+          }
+        }
+
+        
+        const totalSize = weightData.reduce((sum, buf) => sum + buf.length, 0);
+        const concatenated = new Uint8Array(totalSize);
+        let offset = 0;
+        for (const buf of weightData) {
+          concatenated.set(new Uint8Array(buf), offset);
+          offset += buf.length;
+        }
+
+        return {
+          modelTopology: modelData.modelTopology,
+          weightSpecs: weightSpecs,
+          weightData: concatenated.buffer
+        };
+      }
+    };
+
+    
+    nsfwModel = await tf.loadLayersModel(customHandler);
+
+    console.log('NSFW model loaded successfully');
+    return nsfwModel;
+  } catch (error) {
+    console.error('Failed to load NSFW model:', error);
+    throw error;
+  }
+}
+
+
+loadNSFWModel().catch(err => console.error('Error loading NSFW model on startup:', err));
 
 
 const authAttempts = new Map();
 
-// Stats tracking
+
 const STATS_FILE = path.join(__dirname, "data", "stats.json");
 
 function loadStats() {
@@ -40,7 +106,7 @@ function trackDailyUser(userId) {
   if (!userId) return;
 
   const stats = loadStats();
-  const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+  const today = new Date().toISOString().split('T')[0]; 
 
   if (!stats.dailyActiveUsers[today]) {
     stats.dailyActiveUsers[today] = [];
@@ -50,7 +116,7 @@ function trackDailyUser(userId) {
     stats.dailyActiveUsers[today].push(userId);
   }
 
-  // Clean up old data (keep last 30 days)
+  
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
   const cutoffDate = thirtyDaysAgo.toISOString().split('T')[0];
@@ -64,7 +130,7 @@ function trackDailyUser(userId) {
   saveStats(stats);
 }
 
-// Middleware to track daily active users
+
 app.addHook('onRequest', async (request, reply) => {
   const userId = request.headers['x-user-id'];
   if (userId) {
@@ -206,6 +272,89 @@ async function fetchProxyList() {
 }
 
 
+
+app.post('/api/check-nsfw', async (request, reply) => {
+  try {
+    const data = await request.file();
+
+    if (!data) {
+      return reply.code(400).send({ error: 'No image file provided' });
+    }
+
+    
+    const buffer = await data.toBuffer();
+
+    
+    const img = await loadImage(buffer);
+
+    
+    const canvas = createCanvas(224, 224);
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0, 224, 224);
+
+    
+    const model = await loadNSFWModel();
+
+    // Get image data from canvas
+    const imageData = ctx.getImageData(0, 0, 224, 224);
+
+    // Manually convert ImageData to tensor (browser.fromPixels doesn't work in Node.js)
+    const imageTensor = tf.tidy(() => {
+      // Create tensor from raw pixel data [224, 224, 4] (RGBA)
+      const tensor = tf.tensor3d(imageData.data, [224, 224, 4]);
+
+      // Remove alpha channel to get [224, 224, 3] (RGB)
+      const rgb = tensor.slice([0, 0, 0], [224, 224, 3]);
+
+      // Normalize to [0, 1] and add batch dimension
+      return rgb.toFloat().div(255.0).expandDims(0);
+    });
+
+    
+    const logits = model.predict(imageTensor);
+    const probabilities = await logits.data();
+
+    
+    imageTensor.dispose();
+    logits.dispose();
+
+    
+    const predictions = NSFW_CLASSES.map((className, index) => ({
+      className,
+      probability: probabilities[index]
+    })).sort((a, b) => b.probability - a.probability);
+
+    console.log('NSFW Predictions:', predictions);
+
+    // Threshold for NSFW detection (50% confidence)
+    const NSFW_THRESHOLD = 0.5;
+
+    const nsfwPrediction = predictions.find(p => p.className === 'NSFW');
+    const isNSFW = nsfwPrediction && nsfwPrediction.probability > NSFW_THRESHOLD;
+
+    if (isNSFW) {
+      return reply.send({
+        safe: false,
+        reason: 'NSFW content detected',
+        predictions: predictions
+      });
+    }
+
+    return reply.send({
+      safe: true,
+      reason: 'Image appears safe',
+      predictions: predictions
+    });
+
+  } catch (error) {
+    console.error('Error checking NSFW:', error);
+    return reply.code(500).send({
+      error: 'Failed to check image',
+      message: error.message
+    });
+  }
+});
+
 app.post('/api/lorebook-fetch', async (request, reply) => {
    try {
      await auth_middleware(request, reply);
@@ -255,7 +404,7 @@ app.post('/api/lorebook-fetch', async (request, reply) => {
 
    for (const proxy of proxies.slice(0, 5)) { 
      try {
-       const proxyUrl = `http://${proxy.ip}:${proxy.port}`;
+       const proxyUrl = `https://${proxy.ip}:${proxy.port}`;
        console.log(`Trying proxy: ${proxyUrl}`);
 
        
@@ -624,18 +773,18 @@ app.get("/api/stats", async (request, reply) => {
     );
     const stats = loadStats();
 
-    // Calculate stats
+    
     const totalUsers = Object.keys(users).length;
     const totalBots = Object.keys(bots).length;
 
     const publicBots = Object.values(bots).filter(bot => bot.status === 'public').length;
     const privateBots = Object.values(bots).filter(bot => bot.status === 'private').length;
 
-    // Get today's active users
+    
     const today = new Date().toISOString().split('T')[0];
     const dailyActiveUsers = stats.dailyActiveUsers[today] ? stats.dailyActiveUsers[today].length : 0;
 
-    // Calculate 7-day average
+    
     const last7Days = [];
     for (let i = 0; i < 7; i++) {
       const date = new Date();
@@ -649,7 +798,7 @@ app.get("/api/stats", async (request, reply) => {
       ? Math.round(last7Days.reduce((a, b) => a + b, 0) / last7Days.length)
       : 0;
 
-    // Get daily active users for last 30 days (for chart)
+    
     const dailyUserData = {};
     for (let i = 29; i >= 0; i--) {
       const date = new Date();
@@ -885,10 +1034,10 @@ app.put("/api/bots/:id", async (request, reply) => {
   const updatedData = { ...request.body };
   delete updatedData.author;
 
-  // Handle avatar update - save as WebP file if provided
+  
   if (updatedData.avatar && updatedData.avatar.startsWith("data:image/")) {
     try {
-      // Delete old avatar if it exists and is not default
+      
       if (bots[botId].avatar && bots[botId].avatar.startsWith("/assets/bots/") && bots[botId].avatar !== "/assets/bots/noresponse.png") {
         deleteImageFile(bots[botId].avatar);
       }
@@ -1144,7 +1293,7 @@ function canAccessBot(bot, userId, users) {
   }
   const canAccess = bot.author === users[userId].name;
 
-  // Debug logging for private bots
+  
   if (bot.status === "private" && canAccess) {
     console.log(`[DEBUG] Showing private bot "${bot.name}" to owner ${users[userId].name}`);
   }
@@ -1367,7 +1516,7 @@ app.post("/api/upload-bot", async (request, reply) => {
   const user = users[id];
   const bot_id = (Math.max(-1, ...Object.keys(bots).map(Number)) + 1).toString();
 
-  // Handle avatar - save as WebP file instead of base64
+  
   let avatarPath = "/assets/bots/noresponse.png";
   if (avatar && avatar.startsWith("data:image/")) {
     try {
