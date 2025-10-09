@@ -116,6 +116,44 @@
             background-color: #7abf7a;
         }
 
+        /* Avatar Preview Styles */
+        .avatar-upload-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .avatar-preview {
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            object-fit: cover;
+            cursor: pointer;
+            border: 3px solid #96d696;
+            transition: all 0.3s ease;
+        }
+
+        .avatar-preview:hover {
+            border-color: #7abf7a;
+            transform: scale(1.05);
+        }
+
+        .avatar-upload-label {
+            cursor: pointer;
+            color: #96d696;
+            text-decoration: underline;
+            font-size: 14px;
+        }
+
+        .avatar-upload-label:hover {
+            color: #7abf7a;
+        }
+
+        #avatar {
+            display: none;
+        }
+
         /* Rich Text Editor Styles */
         .rich-text-editor {
             border: 1px solid rgba(150, 214, 150, 0.3);
@@ -349,7 +387,13 @@
                 </select>
                 <input type="text" id="tags" name="tags" class="input-field" placeholder="Tags (comma-separated)">
                 <input type="text" id="lorebook" name="lorebook" class="input-field" placeholder="Lorebook URLs (comma-separated, optional)">
-                <input type="file" id="avatar" name="avatar" class="input-field" accept="image/*" required>
+
+                <!-- Avatar Upload with Preview -->
+                <div class="avatar-upload-container">
+                    <img id="avatar-preview" class="avatar-preview" src="/assets/users/default.png" alt="Avatar Preview">
+                    <label for="avatar" class="avatar-upload-label">Click image or here to upload avatar</label>
+                    <input type="file" id="avatar" name="avatar" accept="image/*" required>
+                </div>
 
                 <!-- Rich Text Editor for System Prompt -->
                 <div class="rich-text-editor">
@@ -527,6 +571,26 @@
             });
         }
 
+        // Avatar preview functionality
+        const avatarInput = document.getElementById('avatar');
+        const avatarPreview = document.getElementById('avatar-preview');
+
+        // Make the preview image clickable
+        avatarPreview.addEventListener('click', () => {
+            avatarInput.click();
+        });
+
+        // Update preview when file is selected
+        avatarInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file && file.type.startsWith('image/')) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    avatarPreview.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            }
+        });
 
         document.getElementById('maker-form').addEventListener('submit', async function(e) {
             e.preventDefault();
