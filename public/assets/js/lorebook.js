@@ -3,6 +3,14 @@
  * Handles fetching and processing of lorebook URLs for AI context
  */
 
+import { BareClient } from 'https://esm.sh/@tomphttp/bare-client@latest';
+
+// Initialize BareClient
+let bareClient;
+fetch("./config.json").then(response => response.json()).then(res => {
+    bareClient = new BareClient(res["bareClient"]);
+});
+
 class LorebookProcessor {
     constructor() {
         this.cache = new Map();
@@ -28,7 +36,7 @@ class LorebookProcessor {
         }
 
         console.log('Processing lorebook URLs:', urls);
-        console.log('Using backend proxy for CORS-free fetching');
+        console.log('Using BareClient for CORS-free fetching');
 
         const results = await Promise.allSettled(
             urls.map(url => this.fetchContent(url))
@@ -117,73 +125,31 @@ class LorebookProcessor {
         }
     }
 
-    /**
-     * Fetch with timeout support using puter.js CORS proxy
-     * @param {string} url - URL to fetch
-     * @param {number} timeout - Timeout in milliseconds
-     * @returns {Promise<Response>} - Fetch response
-     */
+
     async fetchWithTimeout(url, timeout) {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), timeout);
 
         try {
-            // Try backend proxy endpoint first (best method - server-side, no CORS issues)
-            console.log('🔄 Trying backend proxy for:', url);
-            try {
-                const proxyResponse = await fetch('/api/lorebook-fetch', {
-                    method: 'POST',
-                    signal: controller.signal,
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'x-user-id': window.api?.userId || localStorage.getItem('userId'),
-                        'x-auth-key': window.api?.key || localStorage.getItem('authKey')
-                    },
-                    body: JSON.stringify({ url })
-                });
-
-                if (proxyResponse.ok) {
-                    const proxyData = await proxyResponse.json();
-                    console.log(`✅ Successfully fetched via backend proxy (method: ${proxyData.method})`, proxyData.proxy ? `using proxy: ${proxyData.proxy}` : '');
-
-                    // Create a Response-like object that matches the fetch API
-                    clearTimeout(timeoutId);
-                    return {
-                        ok: true,
-                        status: 200,
-                        headers: {
-                            get: (name) => {
-                                if (name.toLowerCase() === 'content-type') return proxyData.contentType;
-                                return null;
-                            }
-                        },
-                        text: () => Promise.resolve(proxyData.content),
-                        json: () => {
-                            try {
-                                return Promise.resolve(JSON.parse(proxyData.content));
-                            } catch {
-                                return Promise.reject(new Error('Invalid JSON content'));
-                            }
-                        }
-                    };
-                } else {
-                    const errorData = await proxyResponse.json().catch(() => ({ error: 'Unknown error' }));
-                    console.log('❌ Backend proxy returned error:', errorData.error);
-                }
-            } catch (proxyError) {
-                console.log('❌ Backend proxy failed:', proxyError.message);
+            // Wait for bareClient to be initialized
+            while (!bareClient) {
+                await new Promise(resolve => setTimeout(resolve, 100));
             }
 
-            // Fallback to regular fetch (will only work for CORS-enabled URLs)
-            console.log('🔄 Trying direct fetch (CORS required) for:', url);
-            const response = await fetch(url, {
+            console.log('🔄 Fetching lorebook via BareClient from:', url);
+
+            const response = await bareClient.fetch(url, {
                 signal: controller.signal,
-                mode: 'cors',
                 headers: {
-                    'User-Agent': 'KiwiAI-Lorebook/1.0'
-                }
+                    "accept": "*/*",
+                    "accept-language": "en-US,en;q=0.5",
+                },
+                method: "GET",
+                mode: "cors",
+                credentials: "include"
             });
-            console.log('✅ Successfully fetched via direct fetch');
+
+            console.log('✅ Successfully fetched via BareClient');
             clearTimeout(timeoutId);
             return response;
         } catch (error) {
@@ -195,11 +161,6 @@ class LorebookProcessor {
         }
     }
 
-    /**
-     * Extract text content from HTML
-     * @param {string} html - HTML content
-     * @returns {string} - Extracted text
-     */
     extractTextFromHtml(html) {
         // Create a temporary DOM element to parse HTML
         const tempDiv = document.createElement('div');
@@ -215,11 +176,6 @@ class LorebookProcessor {
         return text;
     }
 
-    /**
-     * Extract relevant text from JSON data
-     * @param {any} data - JSON data
-     * @returns {string} - Extracted text
-     */
     extractTextFromJson(data) {
         const textFields = [];
 
@@ -247,11 +203,6 @@ class LorebookProcessor {
         return textFields.join('\n\n');
     }
 
-    /**
-     * Clean and normalize content
-     * @param {string} content - Raw content
-     * @returns {string} - Cleaned content
-     */
     cleanContent(content) {
         if (!content) return '';
 

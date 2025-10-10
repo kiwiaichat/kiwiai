@@ -3,7 +3,6 @@ const path = require("path");
 const fs = require("fs");
 const crypto = require("crypto");
 const sharp = require("sharp");
-const { HttpsProxyAgent } = require('https-proxy-agent');
 const tf = require('@tensorflow/tfjs');
 const fetch = require('node-fetch');
 const { createCanvas, loadImage } = require('canvas');
@@ -240,39 +239,6 @@ function updateTagUsage() {
   tagUsage = counts;
 }
 
-
-async function fetchProxyList() {
-  const now = Date.now();
-  if (proxyList.length > 0 && (now - proxyLastFetched) < PROXY_CACHE_DURATION) {
-    return proxyList;
-  }
-
-  try {
-    const response = await fetch('https://proxylist.geonode.com/api/proxy-list?limit=500&page=1&sort_by=lastChecked&sort_type=desc');
-    
-    const data = await response.json();
-
-    
-    proxyList = data.data
-      .filter(proxy =>
-        proxy.protocols.includes('http') &&
-        proxy.upTime >= 80 &&
-        proxy.speed > 100 &&
-        proxy.anonymityLevel === 'elite'
-      )
-      .slice(0, 20); 
-
-    proxyLastFetched = now;
-    console.log(`Fetched ${proxyList.length} working proxies`);
-    return proxyList;
-  } catch (error) {
-    console.error('Failed to fetch proxy list:', error);
-    return proxyList; 
-  }
-}
-
-
-
 app.post('/api/check-nsfw', async (request, reply) => {
   try {
     const data = await request.file();
@@ -354,94 +320,6 @@ app.post('/api/check-nsfw', async (request, reply) => {
     });
   }
 });
-
-app.post('/api/lorebook-fetch', async (request, reply) => {
-   try {
-     await auth_middleware(request, reply);
-   } catch (e) {
-     return;
-   }
-
-   const { url } = request.body;
-   if (!url || typeof url !== 'string') {
-     return reply.code(400).send({ error: 'URL is required' });
-   }
-
-   
-   try {
-     new URL(url);
-   } catch {
-     return reply.code(400).send({ error: 'Invalid URL' });
-   }
-
-   console.log('Fetching lorebook content from:', url);
-
-   
-   try {
-     const response = await fetch(url, {
-       headers: {
-         'User-Agent': 'KiwiAI-Lorebook/1.0',
-         'Accept': 'text/html,application/xhtml+xml,application/xml,text/plain,application/json'
-       },
-       timeout: 10000
-     });
-
-     if (response.ok) {
-       const content = await response.text();
-       const contentType = response.headers.get('content-type') || '';
-       return {
-         content,
-         contentType,
-         method: 'direct'
-       };
-     }
-   } catch (directError) {
-     console.log('Direct fetch failed, trying proxies:', directError.message);
-   }
-
-   
-   const proxies = await fetchProxyList();
-
-   for (const proxy of proxies.slice(0, 5)) { 
-     try {
-       const proxyUrl = `https://${proxy.ip}:${proxy.port}`;
-       console.log(`Trying proxy: ${proxyUrl}`);
-
-       
-       const agent = new HttpsProxyAgent(proxyUrl);
-
-       const response = await fetch(url, {
-         agent: agent,
-         headers: {
-           'User-Agent': 'KiwiAI-Lorebook/1.0',
-           'Accept': 'text/html,application/xhtml+xml,application/xml,text/plain,application/json'
-         },
-         signal: AbortSignal.timeout(8000)
-       });
-
-       if (response.ok) {
-         const content = await response.text();
-         const contentType = response.headers.get('content-type') || '';
-         console.log(`Successfully fetched via proxy: ${proxyUrl}`);
-         return {
-           content,
-           contentType,
-           method: 'proxy',
-           proxy: proxyUrl
-         };
-       }
-     } catch (proxyError) {
-       console.log(`Proxy ${proxy.ip}:${proxy.port} failed:`, proxyError.message);
-       continue;
-     }
-   }
-
-   return reply.code(500).send({
-     error: 'Failed to fetch content via direct connection or proxies',
-     attempted: proxies.length > 0 ? 'direct + proxy' : 'direct only'
-   });
- });
-
 
 app.post('/api/enhance-message', async (request, reply) => {
   try {
