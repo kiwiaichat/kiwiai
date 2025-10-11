@@ -7,11 +7,11 @@ class API {
     }
 
     getAIProvider() {
-        return localStorage.getItem('aiProvider') || 'hyper';
+        return localStorage.getItem('aiProvider') || 'https://text.pollinations.ai/openai';
     }
 
     getAIModel() {
-        return localStorage.getItem('aiModel') || 'auto';
+        return localStorage.getItem('aiModel') || 'mistral';
     }
 
     getMaxTokens() {

@@ -69,7 +69,7 @@ function createBotCard(bot, options = {}) {
     // Add click handler
     card.onclick = (e) => {
         // Don't trigger if clicking on action buttons or author element
-        if (e.target.classList.contains('bot-action-btn') || e.target.id === 'author') {
+        if (e.target.classList.contains('bot-action-btn') || e.target.closest('#author')) {
             e.stopPropagation();
             return;
         }

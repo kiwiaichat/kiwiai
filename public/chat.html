@@ -618,9 +618,12 @@
         #chat-input {
             width: 70%;
             padding: 16px 20px;
-            border-top-left-radius: 12px;
-            border-bottom-left-radius: 12px;
-            border: none;
+            border-top-left-radius: 8px;
+            border-bottom-left-radius: 8px;
+            border-style: solid;
+            border-color:#8bcf8b;
+            border-right-style: none;
+            border-right-color: transparent;
             height: 50px;
             background-color: #565756;
             color: rgb(204, 218, 206);
@@ -646,9 +649,12 @@
             background-color: #96d696;
             color: #060806;
             padding: 0 20px;
-            border-top-right-radius: 12px;
-            border-bottom-right-radius: 12px;
+            border-top-right-radius: 8px;
+            border-bottom-right-radius: 8px;
             cursor: pointer;
+                        border-style: solid;
+            border-color:#8bcf8b;
+            border-style: none;
             box-sizing: border-box;
             display: flex;
             align-items: center;
@@ -1154,11 +1160,11 @@
                     </div>
                     <div class="dropdown-item">
                         <label class="dropdown-label">AI Provider</label>
-                        <input type="text" class="dropdown-input" id="ai-provider" placeholder="hyper or https://your-api-url">
+                        <input type="text" class="dropdown-input" id="ai-provider" placeholder="https://text.pollinations.ai/openai">
                     </div>
                     <div class="dropdown-item">
                         <label class="dropdown-label">Model</label>
-                        <input type="text" class="dropdown-input" id="ai-model" placeholder="auto (for hyper) or custom model">
+                        <input type="text" class="dropdown-input" id="ai-model" placeholder="mistral">
                     </div>
                     <div class="dropdown-item">
                         <label class="dropdown-label">Max Tokens</label>
@@ -1203,9 +1209,8 @@
         </div>
     </div>
 
-    <script src="/assets/js/hyper.js"></script>
     <script src="/assets/js/api.js"></script>
-    <script src="/assets/js/lorebook.js"></script>
+    <script src="/assets/js/lorebook.js" type="module"></script>
     <script>
         
         (function checkAuth() {
@@ -2262,8 +2267,8 @@
 
 
         function loadApiConfig() {
-            const aiProvider = localStorage.getItem('aiProvider') || 'hyper'
-            const aiModel = localStorage.getItem('aiModel') || 'auto';
+            const aiProvider = localStorage.getItem('aiProvider') || 'https://text.pollinations.ai/openai'
+            const aiModel = localStorage.getItem('aiModel') || 'mistral';
             const maxTokens = localStorage.getItem('maxTokens') || '1000';
             const apiKey = localStorage.getItem('apiKey') || '';
 
@@ -2293,22 +2298,11 @@
         }
 
 
-        // Initialize Hyper
-        window.hyper = new Hyper();
-        window.hyper.autoCheck().then(() => {
-            console.log('Hyper initialized with best model:', window.hyper.current_best_model);
-            loadData().then(() => {
-                loadChatHistory();
-                loadApiConfig();
-                setupScrollTracking();
-            });
-        }).catch((error) => {
-            console.error('Failed to initialize Hyper:', error);
-            loadData().then(() => {
-                loadChatHistory();
-                loadApiConfig();
-                setupScrollTracking();
-            });
+        // Initialize app
+        loadData().then(() => {
+            loadChatHistory();
+            loadApiConfig();
+            setupScrollTracking();
         });
     </script>
 
