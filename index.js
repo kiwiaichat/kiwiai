@@ -1040,24 +1040,25 @@ app.post("/api/login", {
 });
 
 async function auth_middleware(request, reply) {
-  let key = request.headers["x-auth-key"];
-  let id = request.headers["x-user-id"];
+  const key = request.headers["x-auth-key"];
+  const id = request.headers["x-user-id"];
 
   if (!key || !id) {
-    reply.code(401).send({ error: "Unauthorized" });
-    throw new Error("Auth failed");
+    return reply.code(401).send({ error: "Unauthorized" });
   }
 
-  let users = JSON.parse(
-    fs.readFileSync(path.join(__dirname, "data", "users.json"), "utf-8")
-  );
+  try {
+    const users = JSON.parse(
+      fs.readFileSync(path.join(__dirname, "data", "users.json"), "utf-8")
+    );
 
-  if (!users[id] || users[id]["key"] !== key) {
-    reply.code(401).send({ error: "Unauthorized" });
-    throw new Error("Auth failed");
+    if (!users[id] || users[id]["key"] !== key) {
+      return reply.code(401).send({ error: "Unauthorized" });
+    }
+  } catch (err) {
+    request.log.error("Error in auth middleware:", err);
+    return reply.code(500).send({ error: "Internal server error" });
   }
-
-  return true;
 }
 
 function canAccessBot(bot, userId, users) {
