@@ -1,4 +1,5 @@
 const fastify = require("fastify");
+const atomicWriteFileSync = require("./atomicWriteFileSync");
 const path = require("path");
 const fs = require("fs");
 const crypto = require("crypto");
@@ -6,8 +7,20 @@ const sharp = require("sharp");
 const tf = require('@tensorflow/tfjs');
 const fetch = require('node-fetch');
 const { createCanvas, loadImage } = require('canvas');
-
+const { sanitizeHtml } = require("sanitize-html");
 const app = fastify({ logger: false });
+const helmet = require('@fastify/helmet')
+
+app.register(
+  helmet,
+  { 
+    contentSecurityPolicy: false,
+    frameguard: { action: 'deny' },
+    hidePoweredBy: { setTo: 'ASP.NET' },
+    noSniff: true, 
+  }
+)
+
 
 app.register(require('@fastify/rate-limit'), {
   max: 100,
@@ -101,7 +114,7 @@ function loadStats() {
 function saveStats(stats) {
   try {
     stats.lastUpdated = new Date().toISOString();
-    fs.writeFileSync(STATS_FILE, JSON.stringify(stats, null, 2));
+    atomicWriteFileSync(STATS_FILE, JSON.stringify(stats, null, 2));
   } catch (error) {
     console.error("Error saving stats:", error);
   }
@@ -799,7 +812,7 @@ app.put("/api/bots/:id", async (request, reply) => {
 
   Object.assign(bots[botId], updatedData);
 
-  fs.writeFileSync(
+  atomicWriteFileSync(
     path.join(__dirname, "data", "bots.json"),
     JSON.stringify(bots, null, 2)
   );
@@ -835,13 +848,13 @@ app.delete("/api/bots/:id", async (request, reply) => {
   deleteImageFile(bots[botId].avatar);
 
   delete bots[botId];
-  fs.writeFileSync(
+  atomicWriteFileSync(
     path.join(__dirname, "data", "bots.json"),
     JSON.stringify(bots, null, 2)
   );
 
   users[userId].bots = users[userId].bots.filter((id) => id !== botId);
-  fs.writeFileSync(
+  atomicWriteFileSync(
     path.join(__dirname, "data", "users.json"),
     JSON.stringify(users, null, 2)
   );
@@ -865,7 +878,7 @@ app.post("/api/bots/:id/view", async (request, reply) => {
   }
 
   bots[botId].views++;
-  fs.writeFileSync(
+  atomicWriteFileSync(
     path.join(__dirname, "data", "bots.json"),
     JSON.stringify(bots, null, 2)
   );
@@ -939,7 +952,7 @@ app.post("/api/register",
       avatar: "/assets/users/default.png",
       bio: "",
     };
-    fs.writeFileSync(
+    atomicWriteFileSync(
       path.join(__dirname, "data", "users.json"),
       JSON.stringify(users, null, 2)
     );
@@ -1003,7 +1016,7 @@ app.post("/api/login", {
   }
 
 
-  fs.writeFileSync(
+  atomicWriteFileSync(
     path.join(__dirname, "data", "users.json"),
     JSON.stringify(users, null, 2)
   );
@@ -1292,13 +1305,13 @@ app.post("/api/upload-bot", async (request, reply) => {
     lorebook: sanitizedLorebook,
     views: 0,
   };
-  fs.writeFileSync(
+  atomicWriteFileSync(
     path.join(__dirname, "data", "bots.json"),
     JSON.stringify(bots, null, 2)
   );
 
   users[id]["bots"].push(bot_id);
-  fs.writeFileSync(
+  atomicWriteFileSync(
     path.join(__dirname, "data", "users.json"),
     JSON.stringify(users, null, 2)
   );
@@ -1427,7 +1440,7 @@ app.post("/api/chats", async (request, reply) => {
     lastModified: new Date().toISOString(),
   };
 
-  fs.writeFileSync(
+  atomicWriteFileSync(
     path.join(__dirname, "data", "conversations.json"),
     JSON.stringify(conversations, null, 2)
   );
@@ -1435,7 +1448,7 @@ app.post("/api/chats", async (request, reply) => {
 
   if (!isUpdate && !users[userId].conversations.includes(id)) {
     users[userId].conversations.push(id);
-    fs.writeFileSync(
+    atomicWriteFileSync(
       path.join(__dirname, "data", "users.json"),
       JSON.stringify(users, null, 2)
     );
@@ -1469,7 +1482,7 @@ app.delete("/api/chats/:id", async (request, reply) => {
   }
 
   delete conversations[conversationId];
-  fs.writeFileSync(
+  atomicWriteFileSync(
     path.join(__dirname, "data", "conversations.json"),
     JSON.stringify(conversations, null, 2)
   );
@@ -1477,7 +1490,7 @@ app.delete("/api/chats/:id", async (request, reply) => {
   users[userId].conversations = users[userId].conversations.filter(
     (id) => id !== conversationId
   );
-  fs.writeFileSync(
+  atomicWriteFileSync(
     path.join(__dirname, "data", "users.json"),
     JSON.stringify(users, null, 2)
   );
@@ -1518,7 +1531,7 @@ app.post("/api/log-bot-use", {
   users[userId].recentBots.unshift(botId);
 
   users[userId].recentBots = users[userId].recentBots.slice(0, 10);
-  fs.writeFileSync(
+  atomicWriteFileSync(
     path.join(__dirname, "data", "users.json"),
     JSON.stringify(users, null, 2)
   );
@@ -1606,7 +1619,7 @@ app.put("/api/profile/update", async (request, reply) => {
     }
 
 
-    fs.writeFileSync(
+    atomicWriteFileSync(
       path.join(__dirname, "data", "users.json"),
       JSON.stringify(users, null, 2)
     );
@@ -1679,15 +1692,15 @@ app.delete("/api/delete-account",
       delete users[userId];
 
 
-      fs.writeFileSync(
+      atomicWriteFileSync(
         path.join(__dirname, "data", "users.json"),
         JSON.stringify(users, null, 2)
       );
-      fs.writeFileSync(
+      atomicWriteFileSync(
         path.join(__dirname, "data", "bots.json"),
         JSON.stringify(bots, null, 2)
       );
-      fs.writeFileSync(
+      atomicWriteFileSync(
         path.join(__dirname, "data", "conversations.json"),
         JSON.stringify(conversations, null, 2)
       );
@@ -1728,6 +1741,7 @@ const start = async () => {
       function () {
 
         // duplicate /data/
+
 
         fs.mkdirSync(path.join(__dirname, "duplicate"), { recursive: true });
         fs.copyFileSync(path.join(__dirname, "data", "users.json"), path.join(__dirname, "duplicate", "users.json"));
