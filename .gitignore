@@ -14,3 +14,4 @@ auto
 .claude
 public/assets/js/config.json
 duplicate
+package-lock.json

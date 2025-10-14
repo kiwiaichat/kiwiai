@@ -1,8 +1,9 @@
 {
-  "name": "yuzu",
+  "name": "kiwiai",
   "version": "1.0.0",
   "description": "yuzu yuzu",
   "main": "index.js",
+  "type": "commonjs",  
   "scripts": {
     "start": "node index.js"
   },
