@@ -37,7 +37,6 @@ app.register(helmet, {
     },
   },
   frameguard: { action: 'deny' },
-  hidePoweredBy: { setTo: 'ASP.NET' },
   noSniff: true,
   xssFilter: true,
   referrerPolicy: { policy: 'strict-origin-when-cross-origin' }
