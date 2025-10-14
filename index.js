@@ -1,5 +1,6 @@
 const fastify = require("fastify");
 const path = require("path");
+const sanitizeHtml = require('sanitize-html');
 const fs = require("fs");
 const crypto = require("crypto");
 const sharp = require("sharp");
@@ -7,6 +8,11 @@ const tf = require('@tensorflow/tfjs');
 const fetch = require('node-fetch');
 const { createCanvas, loadImage } = require('canvas');
 const app = fastify({ logger: false });
+
+await app.register(import('@fastify/rate-limit'), {
+  max: 100,
+  timeWindow: '1 minute'
+})
 
 let nsfwModel = null;
 const NSFW_CLASSES = ['NSFW', 'REGULAR'];
@@ -138,56 +144,18 @@ app.addHook('onRequest', async (request, reply) => {
 });
 
 
-let proxyList = [];
-let proxyLastFetched = 0;
-const PROXY_CACHE_DURATION = 10 * 60 * 1000; 
-
-function checkRateLimit(ip) {
-  const now = Date.now();
-  const entry = authAttempts.get(ip) || {
-    attempts: 0,
-    lastAttempt: 0,
-    blocked: false,
-  };
-
-  
-  if (now - entry.lastAttempt > 15 * 60 * 1000) {
-    entry.attempts = 0;
-    entry.blocked = false;
-  }
-
-  
-  if (entry.attempts >= 5) {
-    entry.blocked = true;
-    authAttempts.set(ip, entry);
-    return false;
-  }
-
-  return true;
-}
-
-function recordFailedAttempt(ip) {
-  const now = Date.now();
-  const entry = authAttempts.get(ip) || {
-    attempts: 0,
-    lastAttempt: 0,
-    blocked: false,
-  };
-  entry.attempts++;
-  entry.lastAttempt = now;
-  authAttempts.set(ip, entry);
-}
-
-function recordSuccessfulAuth(ip) {
-  
-  authAttempts.delete(ip);
-}
-
 
 function validateAndSanitizeInput(input, type, maxLength = 10000) {
   if (typeof input !== "string") {
     throw new Error("Input must be a string");
   }
+
+  // remove HTML
+  input = sanitizeHtml(input, {
+    allowedTags: [],
+    allowedAttributes: {}
+  }
+  )
 
   if (input.length > maxLength) {
     throw new Error(`Input too long. Maximum length: ${maxLength}`);
@@ -905,15 +873,17 @@ app.post("/api/bots/:id/view", async (request, reply) => {
   return { status: "ok", views: bots[botId].views };
 });
 
-app.post("/api/register", async (request, reply) => {
-  
-  if (!checkRateLimit(request.ip)) {
-    return reply
-      .code(429)
-      .send({
-        error: "Too many registration attempts. Please try again later.",
-      });
+app.post("/api/register",
+  {
+  config: {
+    rateLimit: {
+      max: 1,
+      timeWindow: '1 hour'
+    }
   }
+}, 
+ async (request, reply) => {
+
 
   const { username, password } = request.body;
   if (!username || !password) {
@@ -979,13 +949,15 @@ app.post("/api/register", async (request, reply) => {
   return { status: "ok", userId: id, key: key };
 });
 
-app.post("/api/login", async (request, reply) => {
-  
-  if (!checkRateLimit(request.ip)) {
-    return reply
-      .code(429)
-      .send({ error: "Too many login attempts. Please try again later." });
+app.post("/api/login",{
+  config: {
+    rateLimit: {
+      max: 3,
+      timeWindow: '1 minute'
+    }
   }
+},  async (request, reply) => {
+
 
   const { username, password } = request.body;
   if (!username || !password) {
@@ -1513,7 +1485,14 @@ app.delete("/api/chats/:id", async (request, reply) => {
   return { status: "ok" };
 });
 
-app.post("/api/log-bot-use", async (request, reply) => {
+app.post("/api/log-bot-use",{
+  config: {
+    rateLimit: {
+      max: 1,
+      timeWindow: '15 minute'
+    }
+  }
+},  async (request, reply) => {
   try {
     await auth_middleware(request, reply);
   } catch (e) {
@@ -1639,7 +1618,15 @@ app.put("/api/profile/update", async (request, reply) => {
   }
 });
 
-app.delete("/api/delete-account", async (request, reply) => {
+app.delete("/api/delete-account",
+  {
+  config: {
+    rateLimit: {
+      max: 3,
+      timeWindow: '1 minute'
+    }
+  }
+},  async (request, reply) => {
   try {
     await auth_middleware(request, reply);
   } catch (e) {
