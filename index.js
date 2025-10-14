@@ -13,16 +13,27 @@ const helmet = require('@fastify/helmet')
 
 app.register(helmet, {
   contentSecurityPolicy: {
+    useDefaults: false,  // Override defaults to avoid 'script-src-attr 'none''
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      imgSrc: ["'self'", "data:"],
-      connectSrc: ["*"],
+      scriptSrc: [
+        "'self'",
+        "'unsafe-inline'",  // For inline <script> tags
+        "'unsafe-eval'",    // For eval() in libs (e.g., if TF.js or bundlers use it)
+        "blob:",            // Crucial: Allows blob: URLs for dynamic scripts
+        "data:",            // If data: scripts are used
+        "'wasm-unsafe-eval'" // Matches the browser fallback you saw
+      ],
+      scriptSrcAttr: ["'unsafe-inline'", "'unsafe-hashes'"],  // Allows inline event handlers (onclick=...) and hashes for them
+      scriptSrcElem: ["'self'", "blob:", "'unsafe-inline'"],  // Specifically for <script> elements
+      styleSrc: ["'self'", "'unsafe-inline'", "data:"],       // If inline styles are an issue
+      imgSrc: ["'self'", "data:", "blob:"],
+      connectSrc: ["'self'", "*"],  // Broaden for fetches/XHR if needed
       fontSrc: ["'self'", "data:"],
       objectSrc: ["'none'"],
       frameAncestors: ["'none'"],
       upgradeInsecureRequests: [],
+      // Add if workers are used: workerSrc: ["'self'", "blob:"],
     },
   },
   frameguard: { action: 'deny' },
@@ -31,7 +42,6 @@ app.register(helmet, {
   xssFilter: true,
   referrerPolicy: { policy: 'strict-origin-when-cross-origin' }
 });
-
 
 app.register(require('@fastify/rate-limit'), {
   max: 100,
@@ -1747,13 +1757,11 @@ app.setNotFoundHandler(async (request, reply) => {
   }
 });
 
-const start = async () => {
-  try {
-    await app.listen({ port: 4000, host: "0.0.0.0" });
+app.listen({ port: 4000, host: "0.0.0.0" });
 
-    updateTagUsage();
+updateTagUsage();
 
-    setInterval(
+setInterval(
       function () {
 
         // duplicate /data/
@@ -1768,11 +1776,4 @@ const start = async () => {
         // update tag usage
 
         updateTagUsage()
-      }, 60 * 60 * 1000);
-  } catch (err) {
-    app.log.error(err);
-    process.exit(1);
-  }
-};
-
-start();
+}, 60 * 60 * 1000);
