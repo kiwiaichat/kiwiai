@@ -11,15 +11,26 @@ const { sanitizeHtml } = require("sanitize-html");
 const app = fastify({ logger: false });
 const helmet = require('@fastify/helmet')
 
-app.register(
-  helmet,
-  { 
-    contentSecurityPolicy: false,
-    frameguard: { action: 'deny' },
-    hidePoweredBy: { setTo: 'ASP.NET' },
-    noSniff: true, 
-  }
-)
+app.register(helmet, {
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", "data:"],
+      connectSrc: ["*"],
+      fontSrc: ["'self'", "data:"],
+      objectSrc: ["'none'"],
+      frameAncestors: ["'none'"],
+      upgradeInsecureRequests: [],
+    },
+  },
+  frameguard: { action: 'deny' },
+  hidePoweredBy: { setTo: 'ASP.NET' },
+  noSniff: true,
+  xssFilter: true,
+  referrerPolicy: { policy: 'strict-origin-when-cross-origin' }
+});
 
 
 app.register(require('@fastify/rate-limit'), {
@@ -295,9 +306,9 @@ app.post('/api/check-nsfw', async (request, reply) => {
 
   } catch (error) {
     console.error('Error checking NSFW:', error);
+    console.error('Error checking NSFW:', error);
     return reply.code(500).send({
-      error: 'Failed to check image',
-      message: error.message
+      error: 'Failed to check image.'
     });
   }
 });
@@ -400,9 +411,9 @@ app.post('/api/create-message', async (request, reply) => {
 
   } catch (error) {
     console.error('Error creating message:', error);
+    console.error('Error creating message:', error);
     return reply.code(500).send({
-      error: 'Failed to create message',
-      details: error.message
+      error: 'Failed to create message.'
     });
   }
 });
@@ -578,7 +589,8 @@ app.get("/api/stats", async (request, reply) => {
     };
   } catch (error) {
     console.error("Error fetching stats:", error);
-    return reply.code(500).send({ error: "Failed to fetch stats" });
+  console.error("Error fetching stats:", error);
+  return reply.code(500).send({ error: "Failed to fetch stats" });
   }
 });
 
@@ -806,7 +818,8 @@ app.put("/api/bots/:id", async (request, reply) => {
       updatedData.avatar = await optimizeAndSaveImage(base64Data, fileName);
     } catch (error) {
       console.error("Error saving avatar:", error);
-      return reply.code(400).send({ error: "Failed to save avatar: " + error.message });
+    console.error("Error saving avatar:", error);
+    return reply.code(400).send({ error: "Failed to save avatar." });
     }
   }
 
@@ -1288,7 +1301,8 @@ app.post("/api/upload-bot", async (request, reply) => {
       avatarPath = await optimizeAndSaveImage(base64Data, fileName);
     } catch (error) {
       console.error("Error saving avatar:", error);
-      return reply.code(400).send({ error: "Failed to save avatar: " + error.message });
+  console.error("Error saving avatar:", error);
+  return reply.code(400).send({ error: "Failed to save avatar." });
     }
   }
 
@@ -1627,7 +1641,8 @@ app.put("/api/profile/update", async (request, reply) => {
     return { status: "ok", message: "Profile updated successfully" };
   } catch (error) {
     console.error("Error updating profile:", error);
-    return reply.code(500).send({ error: "Internal server error" });
+  console.error("Error updating profile:", error);
+  return reply.code(500).send({ error: "Internal server error" });
   }
 });
 
