@@ -321,106 +321,6 @@ app.post('/api/check-nsfw', async (request, reply) => {
   }
 });
 
-app.post('/api/enhance-message', async (request, reply) => {
-  try {
-    await auth_middleware(request, reply);
-  } catch (e) {
-    return;
-  }
-
-  const { message, context, enhancementType = 'improve' } = request.body;
-
-  if (!message || typeof message !== 'string') {
-    return reply.code(400).send({ error: 'Message is required' });
-  }
-
-  if (message.trim().length === 0) {
-    return reply.code(400).send({ error: 'Message cannot be empty' });
-  }
-
-  console.log('Enhancing message:', message.substring(0, 100) + '...');
-
-  
-  const userId = request.headers['x-user-id'];
-  const users = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'users.json'), 'utf-8'));
-  const user = users[userId];
-
-  let systemPrompt = '';
-  switch (enhancementType) {
-    case 'improve':
-      systemPrompt = `You are an expert writing assistant. Improve the following message by making it more clear, engaging, and well-written while preserving the original meaning and intent. Fix any grammatical errors, improve sentence structure, and make the language more polished and professional. Only return the improved message, no explanations.`;
-      break;
-    case 'formal':
-      systemPrompt = `You are a professional writing assistant. Rewrite the following message in a more formal, professional tone while preserving the original meaning. Use proper grammar, eliminate contractions, and make the language more sophisticated. Only return the rewritten message, no explanations.`;
-      break;
-    case 'casual':
-      systemPrompt = `You are a friendly writing assistant. Rewrite the following message in a more casual, conversational tone while preserving the original meaning. Use contractions, simpler language, and a friendly voice. Only return the rewritten message, no explanations.`;
-      break;
-    case 'expand':
-      systemPrompt = `You are a writing assistant. Expand the following message by adding more detail, examples, and elaboration while preserving the core meaning. Make it more comprehensive and informative. Only return the expanded message, no explanations.`;
-      break;
-    case 'summarize':
-      systemPrompt = `You are a writing assistant. Summarize the following message by making it more concise while preserving the key points and main ideas. Remove unnecessary details but keep all important information. Only return the summarized message, no explanations.`;
-      break;
-    default:
-      systemPrompt = `You are a writing assistant. Improve the following message by making it clearer and more engaging while preserving the original meaning. Only return the improved message, no explanations.`;
-  }
-
-  try {
-    const aiProvider = user.aiProvider 
-    const apiKey = user.apiKey 
-    const model = user.aiModel 
-
-    const headers = {
-      'Content-Type': 'application/json'
-    };
-
-    if (apiKey) {
-      headers['Authorization'] = `Bearer ${apiKey}`;
-    }
-
-    const messages = [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: message }
-    ];
-
-    if (context && context.trim()) {
-      messages.splice(1, 0, { role: 'assistant', content: `Context: ${context}` });
-    }
-
-    const response = await fetch(aiProvider, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({
-        model: model,
-        messages: messages,
-        max_tokens: 1000,
-        temperature: 0.7
-      })
-    });
-
-    if (!response.ok) {
-      throw new Error(`AI API Error: ${response.status} ${response.statusText}`);
-    }
-
-    const data = await response.json();
-    const enhancedMessage = data.choices[0].message.content.trim();
-
-    return {
-      original: message,
-      enhanced: enhancedMessage,
-      enhancementType: enhancementType
-    };
-
-  } catch (error) {
-    console.error('Error enhancing message:', error);
-    return reply.code(500).send({
-      error: 'Failed to enhance message',
-      details: error.message
-    });
-  }
-});
-
 
 app.post('/api/create-message', async (request, reply) => {
   try {
@@ -1837,8 +1737,21 @@ const start = async () => {
     
     updateTagUsage();
 
-    
-    setInterval(updateTagUsage, 60 * 60 * 1000);
+    setInterval(
+      function(){
+
+        // duplicate /data/
+
+        fs.mkdirSync(path.join(__dirname, "duplicate"), { recursive: true });
+        fs.copyFileSync(path.join(__dirname, "data", "users.json"), path.join(__dirname, "duplicate", "users.json"));
+        fs.copyFileSync(path.join(__dirname, "data", "bots.json"), path.join(__dirname, "duplicate", "bots.json"));
+        fs.copyFileSync(path.join(__dirname, "data", "conversations.json"), path.join(__dirname, "duplicate", "conversations.json"));
+        fs.copyFileSync(path.join(__dirname, "data", "stats.json"), path.join(__dirname, "duplicate", "stats.json"));
+
+        // update tag usage
+
+        updateTagUsage()
+      }, 60 * 60 * 1000);
   } catch (err) {
     app.log.error(err);
     process.exit(1);

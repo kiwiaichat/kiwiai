@@ -1,5 +1,3 @@
-// Skeleton loader utilities
-
 function createSkeletonCard() {
     const skeleton = document.createElement('div');
     skeleton.className = 'skeleton-card';

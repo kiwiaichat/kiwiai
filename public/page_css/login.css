@@ -1,0 +1,144 @@
+#login-container {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+#login-form {
+  background-color: #464746;
+  padding: 30px;
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  width: 300px;
+}
+
+#switch-link {
+  text-align: center;
+  margin-top: 10px;
+  font-size: 14px;
+}
+
+#switch-link a {
+  color: #96d696;
+  text-decoration: none;
+}
+
+#switch-link a:hover {
+  text-decoration: underline;
+}
+
+#login-form h2 {
+  text-align: center;
+  margin: 0;
+}
+
+.input-field {
+  padding: 15px;
+  border: none;
+  border-radius: 5px;
+  background-color: #565756;
+  color: rgb(204, 218, 206);
+  font-size: 16px;
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+.input-field::placeholder {
+  color: #96d696;
+}
+
+.signin-btn {
+  padding: 15px;
+  border: none;
+  border-radius: 5px;
+  background-color: #96d696;
+  color: #060806;
+  font-size: 16px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.signin-btn:hover {
+  background-color: #7abf7a;
+}
+
+@media (max-width: 768px) {
+  #title {
+    font-size: 18px;
+    margin: 15px 15px 0 15px;
+    text-align: center;
+  }
+
+  #login-container {
+    padding: 20px 15px;
+    align-items: flex-start;
+  }
+
+  #login-form {
+    width: 100%;
+    max-width: 350px;
+    padding: 25px;
+    margin: 20px 0;
+    box-sizing: border-box;
+  }
+
+  .input-field {
+    padding: 12px;
+    font-size: 16px;
+  }
+
+  .signin-btn {
+    padding: 12px;
+    font-size: 16px;
+  }
+
+  #switch-link {
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 480px) {
+  #title {
+    font-size: 16px;
+    margin: 10px 10px 0 10px;
+  }
+
+  #login-container {
+    padding: 15px 10px;
+  }
+
+  #login-form {
+    padding: 20px;
+    gap: 15px;
+    width: 100%;
+    max-width: none;
+    margin: 15px 0;
+  }
+
+  #login-form h2 {
+    font-size: 20px;
+  }
+
+  .input-field {
+    padding: 10px;
+    font-size: 14px;
+  }
+
+  .signin-btn {
+    padding: 10px;
+    font-size: 14px;
+  }
+
+  #switch-link {
+    font-size: 12px;
+  }
+}
+
+a {
+  color: #96d696;
+  text-decoration: none;
+}
