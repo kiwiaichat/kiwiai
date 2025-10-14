@@ -267,17 +267,6 @@ async function loadData() {
   try {
     currentBot = await api.getBot(botId);
 
-    console.log("=== BOT LOADING DEBUG ===");
-    console.log("Loaded currentBot:", currentBot);
-    console.log("currentBot.sys_pmt:", currentBot.sys_pmt);
-    console.log("currentBot.sys_pmt type:", typeof currentBot.sys_pmt);
-    console.log(
-      "currentBot.sys_pmt length:",
-      currentBot.sys_pmt ? currentBot.sys_pmt.length : 0
-    );
-    console.log("All currentBot keys:", Object.keys(currentBot));
-    console.log("=== END BOT LOADING DEBUG ===");
-
     try {
       const response = await fetch(`/api/profile/${api.userId}`, {
         headers: {
@@ -445,10 +434,16 @@ function cancelGeneration() {
     generationAbortController = null;
   }
 
-  // Remove the loading dots bubble
+  // Instead of removing the output, just stop the loading dots and leave the output as-is
   const streamingBubble = document.getElementById("streaming-bubble");
   if (streamingBubble) {
-    streamingBubble.parentElement.parentElement.remove();
+    // Remove loading dots if present, but keep the text
+    const loadingDots = streamingBubble.querySelector(".loading-dots");
+    if (loadingDots) {
+      loadingDots.remove();
+    }
+    // Remove the id so it doesn't get targeted again
+    streamingBubble.removeAttribute("id");
   }
 
   updateButtonToSend();
@@ -522,14 +517,6 @@ async function sendMessage() {
   };
 
   try {
-    console.log("=== CHAT.HTML AI CALL DEBUG ===");
-    console.log("currentBot.sys_pmt:", currentBot.sys_pmt);
-    console.log("currentBot.sys_pmt type:", typeof currentBot.sys_pmt);
-    console.log(
-      "currentBot.sys_pmt length:",
-      currentBot.sys_pmt ? currentBot.sys_pmt.length : 0
-    );
-    console.log("currentBot:", currentBot);
 
     await api.callAIStream(
       messages,
@@ -676,17 +663,6 @@ async function createNewChat() {
 
   try {
     currentBot = await api.getBot(botId);
-
-    console.log("=== BOT LOADING DEBUG (createNewChat) ===");
-    console.log("Loaded currentBot:", currentBot);
-    console.log("currentBot.sys_pmt:", currentBot.sys_pmt);
-    console.log("currentBot.sys_pmt type:", typeof currentBot.sys_pmt);
-    console.log(
-      "currentBot.sys_pmt length:",
-      currentBot.sys_pmt ? currentBot.sys_pmt.length : 0
-    );
-    console.log("All currentBot keys:", Object.keys(currentBot));
-    console.log("=== END BOT LOADING DEBUG (createNewChat) ===");
 
     const newConversation = {
       id: newChatId,
@@ -1079,15 +1055,7 @@ async function regenerateMessage(index) {
     };
 
     try {
-      console.log("=== CHAT.HTML AI CALL DEBUG (2nd occurrence) ===");
-      console.log("currentBot.sys_pmt:", currentBot.sys_pmt);
-      console.log("currentBot.sys_pmt type:", typeof currentBot.sys_pmt);
-      console.log(
-        "currentBot.sys_pmt length:",
-        currentBot.sys_pmt ? currentBot.sys_pmt.length : 0
-      );
-      console.log("currentBot:", currentBot);
-
+  
       await api.callAIStream(
         messages,
         currentBot.sys_pmt,

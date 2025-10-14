@@ -904,7 +904,7 @@ app.post("/api/register",
     config: {
       rateLimit: {
         max: 1,
-        timeWindow: '1 hour'
+        timeWindow: '24 hours'
       }
     }
   },
