@@ -7,7 +7,7 @@ const sharp = require("sharp");
 const tf = require('@tensorflow/tfjs');
 const fetch = require('node-fetch');
 const { createCanvas, loadImage } = require('canvas');
-const { sanitizeHtml } = require("sanitize-html");
+const sanitizeHtml = require("sanitize-html");
 const app = fastify({ logger: false });
 const helmet = require('@fastify/helmet')
 
@@ -113,6 +113,20 @@ loadNSFWModel().catch(err => console.error('Error loading NSFW model on startup:
 
 const authAttempts = new Map();
 
+function recordFailedAttempt(ip) {
+  const now = Date.now();
+  const attempts = authAttempts.get(ip) || [];
+
+  // Remove attempts older than 15 minutes
+  const recentAttempts = attempts.filter(time => now - time < 15 * 60 * 1000);
+  recentAttempts.push(now);
+  authAttempts.set(ip, recentAttempts);
+}
+
+function recordSuccessfulAuth(ip) {
+  // Clear failed attempts on successful auth
+  authAttempts.delete(ip);
+}
 
 const STATS_FILE = path.join(__dirname, "data", "stats.json");
 
@@ -927,8 +941,9 @@ app.post("/api/register",
         .send({ error: "Username and password are required" });
     }
 
+    let sanitizedUsername;
     try {
-      const sanitizedUsername = validateAndSanitizeInput(username, "username");
+      sanitizedUsername = validateAndSanitizeInput(username, "username");
 
       if (password.length < 8) {
         return reply
