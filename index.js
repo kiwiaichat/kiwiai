@@ -26,7 +26,7 @@ app.register(helmet, {
         "'wasm-unsafe-eval'" // Matches the browser fallback you saw
       ],
       scriptSrcAttr: ["'unsafe-inline'", "'unsafe-hashes'"],  // Allows inline event handlers (onclick=...) and hashes for them
-      scriptSrcElem: ["'self'", "blob:", "'unsafe-inline'"],  // Specifically for <script> elements
+      scriptSrcElem: ["'self'", "blob:", "'unsafe-inline'", "https://cdn.jsdelivr.net"],  // Specifically for <script> elements
       styleSrc: ["'self'", "'unsafe-inline'", "data:"],       // If inline styles are an issue
       imgSrc: ["'self'", "data:", "blob:"],
       connectSrc: ["'self'", "*"],  // Broaden for fetches/XHR if needed
@@ -1808,6 +1808,14 @@ setInterval(
         fs.copyFileSync(path.join(__dirname, "data", "bots.json"), path.join(__dirname, "duplicate", "bots.json"));
         fs.copyFileSync(path.join(__dirname, "data", "conversations.json"), path.join(__dirname, "duplicate", "conversations.json"));
         fs.copyFileSync(path.join(__dirname, "data", "stats.json"), path.join(__dirname, "duplicate", "stats.json"));
+
+        // add timestamp file
+
+        fs.writeFileSync(path.join(__dirname, "duplicate", "timestamp.txt"), 
+      
+      `
+      Last updated: ${Date.now()}
+      `);
 
         // update tag usage
 
