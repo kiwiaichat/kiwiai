@@ -14,6 +14,8 @@ It should look like so:
 }
 ```
 
+It requires a URL to a TompHTTP Bare server.
+
 and you must create a `config.json` file in the root of the project.
 
 ```json
@@ -24,7 +26,5 @@ and you must create a `config.json` file in the root of the project.
 ```
 
 in order for reports to be sent to Discord ( for human evaluation ).
-
-It requires a URL to a TompHTTP Bare server.
 
 **Built with ❤️ by the [KiwiAI Team](https://github.com/kiwiaichat)**
