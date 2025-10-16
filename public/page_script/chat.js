@@ -1158,14 +1158,16 @@ loadData().then(() => {
 document.getElementById("reportButton").addEventListener("click", () => {
   let reason = prompt("Please enter the reason for reporting:");
 
-  reason = "BOT " + currentBot.name + "\n BOT ID: " + currentBot.id + "\n" +  reason
   if (reason) {
+    const reportMessage = "BOT " + currentBot.name + "\nBOT LINK: " + window.location.href + "\nBOT ID: " + currentBot.id + "\n" + reason;
+    console.log("Sending report with message:", reportMessage);
+    console.log("currentBot object:", currentBot);
     fetch("/api/report", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ message: reason }),
+      body: JSON.stringify({ message: reportMessage }),
     })
       .then((response) => response.json())
       .then((data) => {
