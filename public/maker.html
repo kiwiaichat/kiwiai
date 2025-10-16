@@ -28,7 +28,9 @@
                 <select id="status" name="status" class="input-field" required>
                     <option value="public">Public</option>
                     <option value="private">Private</option>
+                    <option value="anonymous">Anonymous</option>
                 </select>
+                <p>You can utilize the "anonymous" status on your bot to publish it publicly but not publicly link it to your account.</p>
                 <input type="text" id="tags" name="tags" class="input-field" placeholder="Tags (comma-separated)">
                 <input type="text" id="lorebook" name="lorebook" class="input-field" placeholder="Lorebook URLs (comma-separated, optional)">
 
@@ -48,6 +50,7 @@
                         <button type="button" class="rich-text-btn enhancement-btn" data-type="sys_pmt" title="AI Enhance"><i class="fas fa-magic"></i></button>
                     </div>
                     <textarea id="sys_pmt" name="sys_pmt" class="rich-text-textarea" placeholder="System Prompt / Character Definition" required></textarea>
+                    <textarea id="examples" name="examples" class="rich-text-textarea" placeholder="Example dialouge ( {{char}} and {{user}} supported )"></textarea>
                 </div>
 
                 <!-- Rich Text Editor for Greeting -->
@@ -62,29 +65,12 @@
                     </div>
                     <textarea id="greeting" name="greeting" class="rich-text-textarea" placeholder="Greeting Message" required></textarea>
                 </div>
-
-                <!-- AI Enhancement Panel (initially hidden) -->
-                <div id="ai-enhancement-panel" class="ai-enhancement-panel" style="display: none;">
-                    <div class="enhancement-controls">
-                        <button type="button" class="enhancement-btn" data-enhancement="improve">Improve</button>
-                        <button type="button" class="enhancement-btn secondary" data-enhancement="formal">Make Formal</button>
-                        <button type="button" class="enhancement-btn secondary" data-enhancement="casual">Make Casual</button>
-                        <button type="button" class="enhancement-btn secondary" data-enhancement="expand">Expand</button>
-                        <button type="button" class="enhancement-btn secondary" data-enhancement="summarize">Summarize</button>
-                    </div>
-                    <div id="enhanced-preview" class="enhanced-preview" style="display: none;">
-                        <strong>Enhanced Version:</strong><br>
-                        <div id="enhanced-content"></div>
-                        <div class="enhancement-controls" style="margin-top: 8px; margin-bottom: 0;">
-                            <button type="button" class="enhancement-btn" id="apply-enhancement">Apply Changes</button>
-                            <button type="button" class="enhancement-btn secondary" id="discard-enhancement">Discard</button>
-                        </div>
-                    </div>
-                </div>
                 <button type="submit" class="submit-btn">Create Bot</button>
             </form>
         </div>
     </div>
+
+    <!-- btw, all the prompt stuffs done in the js, client side for transparancy -->
 
     <script src="/page_script/maker.js"></script>
 

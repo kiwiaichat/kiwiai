@@ -43,7 +43,15 @@ const userId = localStorage.getItem('userId');
                                 document.getElementById('status').value = bot.status;
                                 document.getElementById('tags').value = bot.tags ? bot.tags.join(', ') : '';
                                 document.getElementById('lorebook').value = bot.lorebook ? bot.lorebook.join(', ') : '';
-                                document.getElementById('sys_pmt').value = bot.sys_pmt;
+                                let sys_pmt = bot.sys_pmt;
+
+                                if (sys_pmt.includes("<|EXP_SEP|>")){
+                                    document.getElementById("examples").value = sys_pmt.split("<|EXP_STR|>")[1]
+                                    document.getElementById("sys_pmt").value = sys_pmt.split("<|EXP_SEP|>")[0]
+                                }
+                                else {
+                                    document.getElementById("sys_pmt").value = sys_pmt
+                                }
                                 document.getElementById('greeting').value = bot.greeting;
 
                                 document.querySelector('#maker-form h2').textContent = 'Edit Bot';
@@ -193,6 +201,23 @@ const userId = localStorage.getItem('userId');
             const submitBtn = document.querySelector('.submit-btn');
             const originalBtnText = submitBtn.textContent;
 
+            let system_prompt = document.getElementById('sys_pmt').value.trim()
+
+            if (document.getElementById("examples").value != ""){
+                system_prompt =
+                `
+                ${system_prompt}
+                <|EXP_SEP|>
+                The following are examples of dialouge between the character and the use.
+                Analyze the speech patterns, style of speaking and general tone and character of the example dialouge's character. 
+                Attempt to match the example dialouge's character in your own writing as closely as possible.
+                The examples are as follows:
+                <|EXP_STR|>
+                ${document.getElementById("examples").value}
+
+                `
+            }
+
             const formData = {
                 name: document.getElementById('name').value.trim(),
                 description: document.getElementById('description').value.trim(),
@@ -200,7 +225,7 @@ const userId = localStorage.getItem('userId');
                 status: document.getElementById('status').value,
                 tags: document.getElementById('tags').value.trim().split(',').map(tag => tag.trim()).filter(tag => tag),
                 lorebook: document.getElementById('lorebook').value.trim().split(',').map(url => url.trim()).filter(url => url),
-                sys_pmt: document.getElementById('sys_pmt').value.trim(),
+                sys_pmt: system_prompt,
                 greeting: document.getElementById('greeting').value.trim(),
                 chats: editingBotId ? (botData.chats || '') : ''
             };

@@ -359,109 +359,6 @@ app.post('/api/check-nsfw', async (request, reply) => {
 });
 
 
-app.post('/api/create-message', async (request, reply) => {
-  try {
-    await auth_middleware(request, reply);
-  } catch (e) {
-    return;
-  }
-
-  const { context, messageType = 'reply', botPersonality, style = 'natural' } = request.body;
-
-  if (!context || typeof context !== 'string' || context.trim().length === 0) {
-    return reply.code(400).send({ error: 'Context is required' });
-  }
-
-  console.log('Creating message with context:', context.substring(0, 100) + '...');
-
-
-  const userId = request.headers['x-user-id'];
-  const users = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'users.json'), 'utf-8'));
-  const user = users[userId];
-
-  let systemPrompt = '';
-  switch (messageType) {
-    case 'reply':
-      systemPrompt = `You are a helpful assistant. Based on the conversation context provided, generate a natural and relevant reply. The reply should be contextually appropriate and engaging.`;
-      break;
-    case 'question':
-      systemPrompt = `You are a curious assistant. Based on the conversation context provided, generate an insightful question that would continue the conversation naturally and show genuine interest.`;
-      break;
-    case 'elaboration':
-      systemPrompt = `You are an articulate assistant. Based on the conversation context provided, generate a message that elaborates on the previous topic, adding valuable insights or additional information.`;
-      break;
-    case 'summary':
-      systemPrompt = `You are an organized assistant. Based on the conversation context provided, generate a message that summarizes the key points discussed so far.`;
-      break;
-    default:
-      systemPrompt = `You are a helpful assistant. Based on the conversation context provided, generate a natural and relevant message.`;
-  }
-
-
-  if (style === 'formal') {
-    systemPrompt += ` Use a professional and formal tone.`;
-  } else if (style === 'casual') {
-    systemPrompt += ` Use a friendly and casual tone.`;
-  } else if (style === 'humorous') {
-    systemPrompt += ` Add some humor and wit to make it entertaining.`;
-  }
-
-
-  if (botPersonality && botPersonality.trim()) {
-    systemPrompt += ` Consider this personality/context: ${botPersonality}`;
-  }
-
-  try {
-    const aiProvider = user.aiProvider;
-    const apiKey = user.apiKey;
-    const model = user.aiModel;
-
-    const headers = {
-      'Content-Type': 'application/json'
-    };
-
-    if (apiKey) {
-      headers['Authorization'] = `Bearer ${apiKey}`;
-    }
-
-    const messages = [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: `Context: ${context}` }
-    ];
-
-    const response = await fetch(aiProvider, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({
-        model: model,
-        messages: messages,
-        max_tokens: 500,
-        temperature: 0.8
-      })
-    });
-
-    if (!response.ok) {
-      throw new Error(`AI API Error: ${response.status} ${response.statusText}`);
-    }
-
-    const data = await response.json();
-    const generatedMessage = data.choices[0].message.content.trim();
-
-    return {
-      generated: generatedMessage,
-      messageType: messageType,
-      style: style,
-      context: context
-    };
-
-  } catch (error) {
-    console.error('Error creating message:', error);
-    console.error('Error creating message:', error);
-    return reply.code(500).send({
-      error: 'Failed to create message.'
-    });
-  }
-});
 
 app.register(require("@fastify/static"), {
   root: path.join(__dirname, "public"),
@@ -519,10 +416,24 @@ app.get("/api/profile/:profile", async (request, reply) => {
 
   userBots = userBots.filter((bot) => {
 
+    // Public bots are visible to everyone
     if (bot.status === "public") {
       return true;
     }
 
+    // Anonymous bots should NOT appear on a user's public profile.
+    // Only the owner (when viewing their own profile or authenticated as the owner)
+    // may see their anonymous bots (treated like private bots).
+    if (bot.status === "anonymous") {
+      return (
+        isOwnProfile ||
+        (requestingUserId &&
+          users[requestingUserId] &&
+          bot.author === users[requestingUserId].name)
+      );
+    }
+
+    // Private bots are visible only to the owner
     if (bot.status === "private") {
       return (
         isOwnProfile ||
@@ -531,6 +442,7 @@ app.get("/api/profile/:profile", async (request, reply) => {
           bot.author === users[requestingUserId].name)
       );
     }
+
     return false;
   });
 
@@ -542,23 +454,33 @@ app.get("/api/profile/:profile", async (request, reply) => {
     }
 
 
-    const canSeeSysPmt = isOwnProfile || (requestingUserId && users[requestingUserId] && bot.author === users[requestingUserId].name);
+    const isOwner = isOwnProfile || (requestingUserId && users[requestingUserId] && bot.author === users[requestingUserId].name);
 
-    if (canSeeSysPmt) {
+    // Build base bot object without sys_pmt for non-owners
+    const baseBot = {
+      id: bot.id,
+      ...Object.entries(bot)
+        .filter(([key]) => key !== "sys_pmt")
+        .reduce((obj, [key, value]) => ({ ...obj, [key]: value }), {}),
+    };
 
+    // If owner, include sys_pmt and full details
+    if (isOwner) {
       return {
         id: bot.id,
         ...bot,
       };
-    } else {
+    }
 
+    // If bot is anonymous, hide author field for non-owners
+    if (bot.status === "anonymous") {
       return {
-        id: bot.id,
-        ...Object.entries(bot)
-          .filter(([key]) => key !== "sys_pmt")
-          .reduce((obj, [key, value]) => ({ ...obj, [key]: value }), {}),
+        ...baseBot,
+        author: "Anonymous",
       };
     }
+
+    return baseBot;
   });
 
 
@@ -594,6 +516,7 @@ app.get("/api/stats", async (request, reply) => {
 
     const publicBots = Object.values(bots).filter(bot => bot.status === 'public').length;
     const privateBots = Object.values(bots).filter(bot => bot.status === 'private').length;
+  const anonymousBots = Object.values(bots).filter(bot => bot.status === 'anonymous').length;
 
 
     const today = new Date().toISOString().split('T')[0];
@@ -627,6 +550,7 @@ app.get("/api/stats", async (request, reply) => {
       totalBots,
       publicBots,
       privateBots,
+      anonymousBots,
       dailyActiveUsers,
       averageDailyUsers,
       dailyUserData,
@@ -759,12 +683,23 @@ app.get("/api/bots", async (request, reply) => {
     if (typeof bot.views !== "number") {
       bot.views = 0;
     }
-    return {
+
+    const isOwner = userId && users[userId] && bot.author === users[userId].name;
+
+    // Build base safe object: always remove sys_pmt for non-owners
+    const safe = {
       id,
       ...Object.entries(bot)
-        .filter(([key]) => key !== "sys_pmt")
+        .filter(([key]) => (isOwner ? true : key !== "sys_pmt"))
         .reduce((obj, [key, value]) => ({ ...obj, [key]: value }), {}),
     };
+
+    // If anonymous and requester is not the owner, mask author
+    if (bot.status === 'anonymous' && !isOwner) {
+      safe.author = 'Anonymous';
+    }
+
+    return safe;
   });
   return { bots: botList };
 });
@@ -814,11 +749,20 @@ app.get("/api/bots/:id", async (request, reply) => {
     bot.views = 0;
   }
 
+  // If the requester is not the owner, and bot is anonymous, mask author and hide sys_pmt
+  const isOwner = userId && users[userId] && bot.author === users[userId].name;
 
   const safeBot = {
     id: botId,
-    ...bot,
+    ...Object.entries(bot)
+      .filter(([key]) => (isOwner ? true : key !== 'sys_pmt'))
+      .reduce((obj, [key, value]) => ({ ...obj, [key]: value }), {}),
   };
+
+  if (bot.status === 'anonymous' && !isOwner) {
+    safeBot.author = 'Anonymous';
+  }
+
   return safeBot;
 });
 
@@ -1108,14 +1052,24 @@ async function auth_middleware(request, reply) {
 }
 
 function canAccessBot(bot, userId, users) {
+  // Public bots are visible to everyone
   if (bot.status === "public") {
     return true;
   }
+
+  // Anonymous bots are visible to everyone in terms of discovery, but
+  // sensitive fields (author/sys_pmt) will be masked for non-owners by the
+  // endpoint handlers. We return true here so anonymous bots show up in lists
+  // (unless other handlers filter them out).
+  if (bot.status === "anonymous") {
+    return true;
+  }
+
+  // For private bots, require authenticated owner
   if (!userId || !users[userId]) {
     return false;
   }
   const canAccess = bot.author === users[userId].name;
-
 
   if (bot.status === "private" && canAccess) {
     console.log(`[DEBUG] Showing private bot "${bot.name}" to owner ${users[userId].name}`);
@@ -1322,7 +1276,7 @@ app.post("/api/upload-bot", async (request, reply) => {
         .filter((url) => url !== null && url.length > 0 && url.length <= 2000);
     }
 
-    if (!["public", "private"].includes(status)) {
+    if (!["public", "private", "anonymous"].includes(status)) {
       return reply.code(400).send({ error: "Invalid status value" });
     }
   } catch (error) {
@@ -1623,10 +1577,11 @@ app.get("/api/recent-bots", async (request, reply) => {
         if (typeof bot.views !== "number") {
           bot.views = 0;
         }
+        const isOwner = userId && users[userId] && bot.author === users[userId].name;
         return {
           id: botId,
           ...Object.entries(bot)
-            .filter(([key]) => key !== "sys_pmt")
+            .filter(([key]) => (isOwner ? true : key !== 'sys_pmt'))
             .reduce((obj, [key, value]) => ({ ...obj, [key]: value }), {}),
         };
       }
