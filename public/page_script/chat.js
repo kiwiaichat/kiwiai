@@ -1153,3 +1153,31 @@ loadData().then(() => {
   loadApiConfig();
   setupScrollTracking();
 });
+
+
+document.getElementById("reportButton").addEventListener("click", () => {
+  let reason = prompt("Please enter the reason for reporting:");
+
+  reason = "BOT " + currentBot.name + "\n BOT ID: " + currentBot.id + "\n" +  reason
+  if (reason) {
+    fetch("/api/report", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ message: reason }),
+    })
+      .then((response) => response.json())
+      .then((data) => {
+        if (data.success) {
+          showToast("Report sent successfully!", "success");
+        } else {
+          showToast("Failed to send report.", "error");
+        }
+      })
+      .catch((error) => {
+        console.error("Error sending report:", error);
+        showToast("Error sending report.", "error");
+      });
+  }
+})

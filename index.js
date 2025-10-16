@@ -10,6 +10,7 @@ const { createCanvas, loadImage } = require('canvas');
 const sanitizeHtml = require("sanitize-html");
 const app = fastify({ logger: false });
 const helmet = require('@fastify/helmet')
+const app_config = require("./config.json");
 
 app.register(helmet, {
   contentSecurityPolicy: {
@@ -46,6 +47,27 @@ app.register(require('@fastify/rate-limit'), {
   max: 100,
   timeWindow: '1 minute'
 })
+
+app.post('/api/report',
+    {
+    config: {
+      rateLimit: {
+        max: 20,
+        timeWindow: '24 hours'
+      }
+    }
+  }, async (request, reply) => {
+  const { message } = request.body;
+  console.log('Received report:', message); // we can log without any sensetive data concern
+  fetch(app_config["webhook"], {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ content: app_config["prefix"] + "\n" + message })
+  })
+  reply.send({ success: true });
+});
 
 let nsfwModel = null;
 const NSFW_CLASSES = ['NSFW', 'REGULAR'];

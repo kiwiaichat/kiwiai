@@ -238,7 +238,6 @@ async function handleProfileFormSubmit(e) {
     const response = await fetch("/api/profile/update", {
       method: "PUT",
       headers: {
-        "Content-Type": "application/json",
         "x-user-id": localStorage.getItem("userId"),
         "x-auth-key": localStorage.getItem("authKey"),
       },
@@ -379,7 +378,6 @@ async function deleteAccount() {
     const response = await fetch("/api/delete-account", {
       method: "DELETE",
       headers: {
-        "Content-Type": "application/json",
         "x-user-id": localStorage.getItem("userId"),
         "x-auth-key": localStorage.getItem("authKey"),
       },
