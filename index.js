@@ -723,7 +723,6 @@ app.get("/api/bots/id/:encodedId", async (request, reply) => {
   }
 });
 
-
 app.get("/api/bots/:id", async (request, reply) => {
   const botId = request.params.id;
   const userId = request.headers["x-user-id"] || null;
