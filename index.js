@@ -1,16 +1,19 @@
+require("./fix-tensorflow-dll");
+
 const fastify = require("fastify");
 const atomicWriteFileSync = require("./atomicWriteFileSync");
 const path = require("path");
 const fs = require("fs");
 const crypto = require("crypto");
 const sharp = require("sharp");
-const tf = require('@tensorflow/tfjs');
+const tf = require('@tensorflow/tfjs-node');
 const fetch = require('node-fetch');
 const { createCanvas, loadImage } = require('canvas');
 const sanitizeHtml = require("sanitize-html");
 const app = fastify({ logger: false });
 const helmet = require('@fastify/helmet')
 const app_config = require("./config.json");
+
 
 app.register(helmet, {
   contentSecurityPolicy: {
