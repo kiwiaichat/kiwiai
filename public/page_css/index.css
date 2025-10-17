@@ -334,6 +334,55 @@ footer a:hover {
   font-weight: 600;
 }
 
+#token-range {
+  padding: 12px 12px;
+  border-radius: var(--border-radius-md);
+  border: 2px solid rgba(150, 214, 150, 0.2);
+  background: linear-gradient(145deg, var(--color-bg-card), #3a3b3a);
+  color: var(--color-white);
+  height: 48px;
+  font-size: var(--font-size-base);
+  transition: var(--transition-normal);
+  box-shadow: var(--shadow-sm);
+  cursor: pointer;
+  font-weight: 500;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2396d696' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 16px;
+  padding-right: 40px;
+}
+
+#token-range:hover {
+  border-color: rgba(150, 214, 150, 0.4);
+  background: linear-gradient(145deg, #3a3b3a, var(--color-bg-card));
+}
+
+#token-range:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(150, 214, 150, 0.2), var(--shadow-md);
+}
+
+#token-range option {
+  padding: var(--spacing-sm);
+  background: var(--color-bg-card);
+  color: var(--color-white);
+  font-weight: 500;
+}
+
+#token-range option:hover {
+  background: linear-gradient(
+    135deg,
+    var(--color-primary),
+    var(--color-primary-hover)
+  );
+  color: var(--color-bg-main);
+}
+
 .tag {
   background: linear-gradient(
     135deg,
@@ -457,6 +506,15 @@ footer a:hover {
     height: 44px;
   }
 
+  #token-range {
+    width: 100%;
+    height: 44px;
+    font-size: var(--font-size-sm);
+    padding: 10px 10px;
+    padding-right: 35px;
+    background-size: 14px;
+  }
+
   #cards {
     padding: 0 5px;
     grid-template-columns: repeat(2, 1fr);
@@ -578,4 +636,18 @@ footer a:hover {
   .card .avatar {
     height: 150px !important;
   }
+}
+
+
+#token-range {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  background-color: #464746;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 16px;
+  -webkit-tap-highlight-color: transparent;
 }

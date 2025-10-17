@@ -96,8 +96,18 @@ const wisdom = [
                 }
                 const currentUserId = localStorage.getItem('userId');
 
-                data.bots.forEach(bot => {
-                    
+                // Filter bots by token range if specified
+                let filteredBots = data.bots;
+                if (params.tokenRange) {
+                    const [minTokens, maxTokens] = params.tokenRange.split('-').map(Number);
+                    filteredBots = data.bots.filter(bot => {
+                        const tokenCount = bot.token_count || 0;
+                        return tokenCount >= minTokens && tokenCount <= maxTokens;
+                    });
+                }
+
+                filteredBots.forEach(bot => {
+
                     if (displayedBotIds.has(bot.id)) {
                         return;
                     }
@@ -174,7 +184,8 @@ const wisdom = [
             displayedBotIds.clear();
             const search = document.getElementById('search').value;
             const selectedTags = Array.from(document.getElementById('tags').selectedOptions).map(option => option.value);
-            loadBots({ search, tags: selectedTags });
+            const tokenRange = document.getElementById('token-range').value;
+            loadBots({ search, tags: selectedTags, tokenRange });
         }
 
         function editBot(botId, event) {
@@ -220,6 +231,7 @@ const wisdom = [
 
         const searchInput = document.getElementById('search');
         const tagsSelect = document.getElementById('tags');
+        const tokenRangeSelect = document.getElementById('token-range');
 
         // Enhanced mobile input handling
         searchInput.addEventListener('input', reloadBots);
@@ -233,6 +245,7 @@ const wisdom = [
         });
 
         tagsSelect.addEventListener('change', reloadBots);
+        tokenRangeSelect.addEventListener('change', reloadBots);
 
         // Enhanced mobile scroll handling with touch tracking
         let isScrolling = false;
@@ -255,12 +268,13 @@ const wisdom = [
         window.addEventListener('scroll', () => {
             const search = searchInput.value;
             const selectedTags = Array.from(tagsSelect.selectedOptions).map(option => option.value);
+            const tokenRange = tokenRangeSelect.value;
 
             // Better infinite scroll detection for mobile
             const threshold = window.innerWidth <= 768 ? 200 : 100;
             const nearBottom = window.scrollY + window.innerHeight >= document.body.scrollHeight - threshold;
 
-            if (!loading && (search || selectedTags.length > 0) === false && nearBottom && !isScrolling) {
+            if (!loading && (search || selectedTags.length > 0 || tokenRange) === false && nearBottom && !isScrolling) {
                 loadBots({});
             }
         }, { passive: true });
