@@ -25,7 +25,7 @@
                 <h2>Create Bot</h2>
                 <input type="text" id="name" name="name" class="input-field" placeholder="Bot Name" required>
                 <input type="text" id="description" name="description" class="input-field" placeholder="Description" required>
-                <select id="" name="status" class="input-field" required>
+                <select id="status" name="status" class="input-field" required>
                     <option value="public">Public</option>
                     <option value="private">Private</option>
                     <option value="anonymous">Anonymous</option>
@@ -37,12 +37,12 @@
                 <div class="avatar-upload-container">
                     <img id="avatar-preview" class="avatar-preview" src="/assets/users/default.png" alt="Avatar Preview">
                     <label for="avatar" class="avatar-upload-label">Click image or here to upload avatar</label>
-                    <input type="file" id="avatar" name="avatar" accept="image/*" required>
+                    <input type="file" id="avatar" name="avatar" accept="image/*">
                 </div>
 
                     <textarea id="sys_pmt" name="sys_pmt" class="rich-text-textarea" placeholder="System Prompt / Character Definition" required></textarea>
             
-                    <textarea id="examples" name="examples" class="rich-text-textarea" placeholder="Example dialouge`1"></textarea>
+                    <textarea id="examples" name="examples" class="rich-text-textarea" placeholder="Example dialouge"></textarea>
         <textarea id="greeting" name="greeting" class="rich-text-textarea" placeholder="Greeting Message" required></textarea>
                 <button type="submit" class="submit-btn">Create Bot</button>
             </form>

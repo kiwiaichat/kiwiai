@@ -311,6 +311,17 @@
     white-space: nowrap;
 }
 
+.anonymous-badge {
+    font-size: var(--font-size-xs);
+    background: rgba(150, 150, 214, 0.2);
+    color: #9696d6;
+    padding: 2px 8px;
+    border-radius: var(--border-radius-sm);
+    border: 1px solid rgba(150, 150, 214, 0.4);
+    font-weight: 600;
+    white-space: nowrap;
+}
+
 @media (prefers-contrast: high) {
     .card {
         border: 2px solid var(--color-primary);

@@ -450,17 +450,19 @@ if (profile) {
         const viewText =
           viewCount === 1 ? "1 view" : `${viewCount.toLocaleString()} views`;
 
-        // Add private badge if bot is private
-        const privateBadge =
-          bot.status === "private"
-            ? '<span class="private-badge">🔒 Private</span>'
-            : "";
+        // Add status badge if bot is private or anonymous
+        let statusBadge = '';
+        if (bot.status === 'private') {
+          statusBadge = '<span class="private-badge">🔒 Private</span>';
+        } else if (bot.status === 'anonymous') {
+          statusBadge = '<span class="anonymous-badge">👤 Anonymous</span>';
+        }
 
         card.innerHTML = `
                             <img src="${
                               bot.avatar || "/assets/general/noresponse.png"
                             }" alt="Bot Avatar" class="avatar">
-                            <span id="name">${bot.name}${privateBadge}</span>
+                            <span id="name">${bot.name}${statusBadge}</span>
                             <span id="description">${bot.description}</span>
                             <span id="author">${bot.author}</span>
                             <span id="views">${viewText}</span>

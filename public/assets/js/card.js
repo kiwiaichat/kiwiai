@@ -1,11 +1,4 @@
-// Shared Card Component Logic
 
-/**
- * Creates a bot card element with standardized structure and behavior
- * @param {Object} bot - Bot data object
- * @param {Object} options - Configuration options
- * @returns {HTMLElement} - The created card element
- */
 function createBotCard(bot, options = {}) {
     const {
         showActions = false,
