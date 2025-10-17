@@ -723,6 +723,8 @@ app.get("/api/bots/id/:encodedId", async (request, reply) => {
   }
 });
 
+await function
+
 app.get("/api/bots/:id", async (request, reply) => {
   const botId = request.params.id;
   const userId = request.headers["x-user-id"] || null;
@@ -814,6 +816,14 @@ app.put("/api/bots/:id", async (request, reply) => {
 
   Object.assign(bots[botId], updatedData);
 
+  // Recalculate token count if any relevant fields were updated
+  if (updatedData.sys_pmt || updatedData.greeting || updatedData.chats) {
+    const tokenCount = estimateTokenCount(bots[botId].sys_pmt || '') +
+                       estimateTokenCount(bots[botId].greeting || '') +
+                       estimateTokenCount(bots[botId].chats || '');
+    bots[botId].token_count = tokenCount;
+  }
+
   atomicWriteFileSync(
     path.join(__dirname, "data", "bots.json"),
     JSON.stringify(bots, null, 2)
@@ -864,7 +874,15 @@ app.delete("/api/bots/:id", async (request, reply) => {
   return { status: "ok" };
 });
 
-app.post("/api/bots/:id/view", async (request, reply) => {
+app.post("/api/bots/:id/view",
+  {
+    config: {
+      rateLimit: {
+        max: 1,
+        timeWindow: '24 hours'
+      }
+    }
+  }, async (request, reply) => {
   const botId = request.params.id;
   const bots = JSON.parse(
     fs.readFileSync(path.join(__dirname, "data", "bots.json"), "utf-8")
@@ -1049,6 +1067,14 @@ async function auth_middleware(request, reply) {
     request.log.error("Error in auth middleware:", err);
     return reply.code(500).send({ error: "Internal server error" });
   }
+}
+
+function estimateTokenCount(text) {
+  // Estimate tokens by treating every 4 characters as 1 token
+  if (!text || typeof text !== 'string') {
+    return 0;
+  }
+  return Math.ceil(text.length / 4);
 }
 
 function canAccessBot(bot, userId, users) {
@@ -1307,6 +1333,11 @@ app.post("/api/upload-bot", async (request, reply) => {
     }
   }
 
+  // Calculate token count estimate (sys_pmt + greeting + chats)
+  const tokenCount = estimateTokenCount(sanitizedSysPmt) +
+                     estimateTokenCount(sanitizedGreeting) +
+                     estimateTokenCount(sanitizedChats);
+
   bots[bot_id] = {
     name: sanitizedName,
     description: sanitizedDescription,
@@ -1319,6 +1350,7 @@ app.post("/api/upload-bot", async (request, reply) => {
     tags: sanitizedTags,
     lorebook: sanitizedLorebook,
     views: 0,
+    token_count: tokenCount,
   };
   atomicWriteFileSync(
     path.join(__dirname, "data", "bots.json"),
