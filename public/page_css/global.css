@@ -1,40 +1,65 @@
+/* ────────────────────────────────────────────────
+   Neon‑Kiwi palette – subtle enough for UI, vivid enough for vibe
+   ──────────────────────────────────────────────── */
 :root {
-  --color-primary: #98d898;
-  --color-primary-hover: #7bc27b;
-  --color-primary-light: #b8d8b8;
-  --color-bg-main: #060806;
-  --color-bg-card: #464746;
-  --color-text-primary: #d0f0d0;
-  --color-text-accent: #98d898;
-  --color-danger: #d86868;
-  --color-danger-hover: #c75454;
-  --color-white: #fff;
-  --color-border: #98d898;
+  /* Primary – neon kiwi */
+  --color-primary:         #a8ff6c;   /* vivid kiwi neon */
+  --color-primary-hover:   #92e45a;   /* a touch darker for hover */
+  --color-primary-light:   #c8ff9e;   /* softer “light” version */
+
+  /* Background – deep dark for contrast */
+  --color-bg-main:         #020402;   /* almost‑black, lower‑saturation */
+  --color-bg-card:         #212321;   /* dark‑gray with a hint of green */
+
+  /* Text – high‑contrast, not pure white */
+  --color-text-primary:    #e0ffe0;   /* pale neon‑tinted white */
+  --color-text-accent:     #a8ff6c;   /* same as primary for consistency */
+
+  /* Danger – keep the red but give it a neon edge */
+  --color-danger:          #ff6b6b;   /* neon coral */
+  --color-danger-hover:    #e85a5a;   /* slightly deeper for hover */
+
+  /* Neutrals */
+  --color-white:           #ffffff;
+  --color-border:          #5ac45a;   /* subtle kiwi‑green border */
+
+  /* Typography */
   --font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
   --font-size-xs: 11px;
   --font-size-sm: 12px;
   --font-size-base: 14px;
   --font-size-lg: 16px;
   --font-size-xl: 18px;
+
+  /* Spacing */
   --spacing-xs: 3px;
   --spacing-sm: 5px;
   --spacing-md: 10px;
   --spacing-lg: 15px;
   --spacing-xl: 20px;
+
+  /* Rounding */
   --border-radius-sm: 3px;
   --border-radius-md: 5px;
   --border-radius-lg: 10px;
   --border-radius-full: 50%;
+
+  /* Shadows – keep them soft so they don’t compete with the neon */
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.12);
   --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.15);
-  --shadow-lg: 0 10px 25px rgba(0, 0, 0, 0.2);
+  --shadow-lg: 0 10px 25px rgba(0, 0, 0, 0.20);
+
+  /* Transitions – keep the same feel */
   --transition-fast: 0.1s ease-in-out;
   --transition-normal: 0.2s ease-in-out;
   --transition-slow: 0.3s ease-in-out;
 }
-* {
-  box-sizing: border-box;
-}
+
+/* -----------------------------------------------------------------
+   Global & layout tweaks (no “glow” – just clean contrast)
+   ----------------------------------------------------------------- */
+* { box-sizing: border-box; }
+
 body {
   margin: 0;
   height: 100vh;
@@ -42,20 +67,30 @@ body {
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background: linear-gradient(135deg, var(--color-bg-main) 0%, #0a0c0a 100%);
+  /* A very dark gradient to keep the neon pop */
+  background: linear-gradient(135deg,
+              var(--color-bg-main) 0%,
+              #0a0c0a 100%);
+  color: var(--color-text-primary);
 }
+
+/* Root container – same as before, just using the new vars */
 #root {
   display: flex;
-  background: linear-gradient(135deg, var(--color-bg-main) 0%, #0a0c0a 100%);
-  color: var(--color-text-primary);
-  height: 100%;
   flex-direction: column;
   min-height: 100%;
+  background: inherit;      /* inherits the body gradient */
+  color: var(--color-text-primary);
 }
+
+/* Kiwi accent – we keep the subtle text‑shadow for depth,
+   but we no longer rely on a heavy “glow”. */
 #kiwi {
   color: var(--color-text-accent);
-  text-shadow: 0 0 10px rgba(152, 216, 152, 0.3);
+  text-shadow: 0 0 6px rgba(168, 255, 108, 0.25);
 }
+
+/* Navigation – use the new primary colors */
 #nav {
   display: flex;
   justify-content: space-between;
@@ -63,10 +98,41 @@ body {
   padding: var(--spacing-md) var(--spacing-xl);
   flex-wrap: wrap;
 }
+
+/* Title – a small scale‑up on hover to give it life */
 #title {
   margin-left: var(--spacing-xl);
   cursor: pointer;
   transition: var(--transition-normal);
   font-weight: 600;
   letter-spacing: 0.5px;
+}
+#title:hover {
+  color: var(--color-primary-hover);
+  transform: scale(1.04);
+}
+
+/* -----------------------------------------------------------------
+   Optional helper classes (you can add them to any element)
+   ----------------------------------------------------------------- */
+.neon-btn {
+  background: var(--color-primary);
+  border: 1px solid var(--color-border);
+  color: var(--color-bg-main);
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-radius: var(--border-radius-md);
+  transition: var(--transition-fast);
+}
+.neon-btn:hover {
+  background: var(--color-primary-hover);
+  border-color: var(--color-primary-light);
+}
+
+/* Card – a subtle “neon‑edge” border */
+.card {
+  background: var(--color-bg-card);
+  border: 2px solid var(--color-border);
+  border-radius: var(--border-radius-lg);
+  box-shadow: var(--shadow-md);
+  padding: var(--spacing-lg);
 }

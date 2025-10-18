@@ -35,7 +35,7 @@
   justify-content: center;
   height: 120px;
   z-index: 10;
-  background-color: #060806;
+  background-color: transparent;
   background-image: url();
   padding: 20px;
 }

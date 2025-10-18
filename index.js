@@ -29,11 +29,11 @@ app.register(helmet, {
         "'wasm-unsafe-eval'" // Matches the browser fallback you saw
       ],
       scriptSrcAttr: ["'unsafe-inline'", "'unsafe-hashes'"],  // Allows inline event handlers (onclick=...) and hashes for them
-      scriptSrcElem: ["'self'", "blob:", "'unsafe-inline'", "https://cdn.jsdelivr.net"],  // Specifically for <script> elements
-      styleSrc: ["'self'", "'unsafe-inline'", "data:"],       // If inline styles are an issue
+      scriptSrcElem: ["'self'", "blob:", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https://esm.sh"],  // Specifically for <script> elements
+      styleSrc: ["'self'", "'unsafe-inline'", "data:", "https://fonts.googleapis.com"],       // If inline styles are an issue
       imgSrc: ["'self'", "data:", "blob:"],
       connectSrc: ["'self'", "*"],  // Broaden for fetches/XHR if needed
-      fontSrc: ["'self'", "data:"],
+      fontSrc: ["'self'", "data:", "https://fonts.gstatic.com"],
       objectSrc: ["'none'"],
       frameAncestors: ["'none'"],
       upgradeInsecureRequests: [],
