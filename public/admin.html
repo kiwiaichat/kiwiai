@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - KiwiAI</title>
+    <meta name="description" content="kiwiai, the one site that truely free">
+    <meta property="og:image" content="/assets/general/favicon.png">
+
+    <link rel="icon" type="image/x-icon" href="/assets/general/favicon.png">
+    <link type="text/css" rel="stylesheet" href="/page_css/global.css" />
+    <link rel="stylesheet" href="page_css/admin.css">
+</head>
+<body>
+    <div id="nav">
+        <h2 id="title" onclick="window.location.href = '/'"><span id="kiwi">kiwi</span> ai</h2>
+        <a href="/" class="back-btn">← Back to Home</a>
+    </div>
+
+    <div class="container">
+        <h1>Kiwi Admin Panel</h1>
+
+        <div id="content">
+            <div class="box">
+                <h2>Management</h2>
+                <p>Manage user accounts, roles, and permissions.</p>
+                <h3>Remove bot from ID</h3>
+                <input type="text" id="remove-bot-id" class="input-field" placeholder="Bot ID">
+                <button id="remove-bot-btn" class="submit-btn">Remove Bot</button>
+                <h3>Ban User from ID</h3>
+                <input type="text" id="ban-user-id" class="input-field" placeholder="User ID">
+                <button id="ban-user-btn" class="submit-btn">Ban User</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="/page_script/admin.js"></script>
+</body>
+</html>

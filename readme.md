@@ -1,16 +1,20 @@
-# KiwiAI 
+# KiwiAI
 
-A minimalistic AI roleplay platform inspired by [CharacterAI](https://character.ai/) and [JanitorAI](https://janitorai.com/).
+A minimalistic AI roleplay platform inspired by [Character.AI](https://character.ai/) and [JanitorAI](https://janitorai.com/).
 
 ---
 
-Note: when setting up Kiwi, you'll need to add a `config.json` file to `/public/assets/js/`
+## Setup
 
-It should look like so:
+When setting up Kiwi, you'll need to create a `config.json` file in the root of the project.
+
+It should look like this:
 
 ```json
 {
-    "bareClient": "your_bare"
+    "webhook": "your_discord_webhook_url",
+    "prefix": "your_report_prefix",
+    "admins": ["user_id_1", "user_id_2"]
 }
 ```
 
@@ -26,5 +30,7 @@ and you must create a `config.json` file in the root of the project.
 ```
 
 in order for reports to be sent to Discord ( for human evaluation ).
+
+It requires a URL to a TompHTTP Bare server.
 
 **Built with ❤️ by the [KiwiAI Team](https://github.com/kiwiaichat)**
