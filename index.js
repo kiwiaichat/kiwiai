@@ -757,9 +757,7 @@ app.get("/api/bots/:id", async (request, reply) => {
 
   const safeBot = {
     id: botId,
-    ...Object.entries(bot)
-      .filter(([key]) => (isOwner ? true : key !== 'sys_pmt'))
-      .reduce((obj, [key, value]) => ({ ...obj, [key]: value }), {}),
+    ...bot,
   };
 
   if (bot.status === 'anonymous' && !isOwner) {
