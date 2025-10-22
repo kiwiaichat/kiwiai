@@ -1807,3 +1807,160 @@ setInterval(
 
         updateTagUsage()
 }, 60 * 60 * 1000);
+
+async function isAdmin(request, reply) {
+  try {
+    await auth_middleware(request, reply);
+    const userId = request.headers["x-user-id"];
+    if (!app_config.admins.includes(userId)) {
+      return reply.code(403).send({ error: "Forbidden" });
+    }
+  } catch (e) {
+    // auth_middleware already sent a reply
+  }
+}
+
+app.get("/api/check_admin", async (request, reply) => {
+  try {
+    await auth_middleware(request, reply);
+  } catch (e) {
+    return;
+  }
+  const userId = request.headers["x-user-id"];
+  const isAdminUser = app_config.admins.includes(userId);
+  return { isAdmin: isAdminUser };
+});
+
+app.post("/api/remove_bot", async (request, reply) => {
+  try {
+    await isAdmin(request, reply);
+  } catch (e) {
+    return;
+  }
+
+  const { botId } = request.body;
+  if (!botId) {
+    return reply.code(400).send({ error: "botId is required" });
+  }
+
+  const bots = JSON.parse(
+    fs.readFileSync(path.join(__dirname, "data", "bots.json"), "utf-8")
+  );
+  const users = JSON.parse(
+    fs.readFileSync(path.join(__dirname, "data", "users.json"), "utf-8")
+  );
+
+  if (!bots[botId]) {
+    return reply.code(404).send({ error: "Bot not found" });
+  }
+
+  const bot = bots[botId];
+  const authorName = bot.author;
+
+  // Find user by name
+  let authorId = null;
+  for (const id in users) {
+    if (users[id].name === authorName) {
+      authorId = id;
+      break;
+    }
+  }
+
+  deleteImageFile(bot.avatar);
+  delete bots[botId];
+
+  if (authorId && users[authorId]) {
+    users[authorId].bots = users[authorId].bots.filter((id) => id !== botId);
+  }
+
+  atomicWriteFileSync(
+    path.join(__dirname, "data", "bots.json"),
+    JSON.stringify(bots, null, 2)
+  );
+  atomicWriteFileSync(
+    path.join(__dirname, "data", "users.json"),
+    JSON.stringify(users, null, 2)
+  );
+
+  return { message: "Bot removed successfully" };
+});
+
+app.post("/api/ban_user", async (request, reply) => {
+  try {
+    await isAdmin(request, reply);
+  } catch (e) {
+    return;
+  }
+
+  const adminId = request.headers["x-user-id"];
+  const { userId } = request.body;
+
+  if (!userId) {
+    return reply.code(400).send({ error: "userId is required" });
+  }
+
+  if (adminId === userId) {
+    return reply.code(400).send({ error: "Cannot ban yourself" });
+  }
+  
+  if (app_config.admins.includes(userId)) {
+    return reply.code(403).send({ error: "Cannot ban another admin" });
+  }
+
+  try {
+    const users = JSON.parse(
+      fs.readFileSync(path.join(__dirname, "data", "users.json"), "utf-8")
+    );
+    const bots = JSON.parse(
+      fs.readFileSync(path.join(__dirname, "data", "bots.json"), "utf-8")
+    );
+    const conversations = JSON.parse(
+      fs.readFileSync(
+        path.join(__dirname, "data", "conversations.json"),
+        "utf-8"
+      )
+    );
+
+    if (!users[userId]) {
+      return reply.code(404).send({ error: "User not found" });
+    }
+
+    const user = users[userId];
+
+    if (user.bots && Array.isArray(user.bots)) {
+      user.bots.forEach((botId) => {
+        if (bots[botId]) {
+          deleteImageFile(bots[botId].avatar);
+          delete bots[botId];
+        }
+      });
+    }
+
+    if (user.conversations && Array.isArray(user.conversations)) {
+      user.conversations.forEach((conversationId) => {
+        delete conversations[conversationId];
+      });
+    }
+
+    deleteUserImageFile(user.avatar);
+    delete users[userId];
+
+    atomicWriteFileSync(
+      path.join(__dirname, "data", "users.json"),
+      JSON.stringify(users, null, 2)
+    );
+    atomicWriteFileSync(
+      path.join(__dirname, "data", "bots.json"),
+      JSON.stringify(bots, null, 2)
+    );
+    atomicWriteFileSync(
+      path.join(__dirname, "data", "conversations.json"),
+      JSON.stringify(conversations, null, 2)
+    );
+
+    return { message: "User banned successfully" };
+  } catch (error) {
+    console.error("Error banning user:", error);
+    return reply.code(500).send({ error: "Internal server error" });
+  }
+});
