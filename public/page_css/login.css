@@ -67,11 +67,6 @@
 }
 
 @media (max-width: 768px) {
-  #title {
-    font-size: 18px;
-    margin: 15px 15px 0 15px;
-    text-align: center;
-  }
 
   #login-container {
     padding: 20px 15px;
@@ -102,10 +97,6 @@
 }
 
 @media (max-width: 480px) {
-  #title {
-    font-size: 16px;
-    margin: 10px 10px 0 10px;
-  }
 
   #login-container {
     padding: 15px 10px;

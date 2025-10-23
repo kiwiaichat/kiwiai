@@ -55,15 +55,22 @@ function createBotCard(bot, options = {}) {
         <div id="name">${escapeHtml(bot.name)}</div>
         <div id="description">${escapeHtml(bot.description || 'No description available')}</div>
         ${tagsHtml}
-        <div id="author" onclick="event.stopPropagation(); window.location.href = '/profile/${escapeHtml(bot.author)}'" style="cursor: pointer;">by ${escapeHtml(bot.author)}</div>
+        <div id="author" style="cursor: pointer;">by ${escapeHtml(bot.author)}</div>
         <div id="views">${viewText}</div>
     `;
 
     // Add click handler
     card.onclick = (e) => {
-        // Don't trigger if clicking on action buttons or author element
-        if (e.target.classList.contains('bot-action-btn') || e.target.closest('#author')) {
+        // Don't trigger if clicking on action buttons
+        if (e.target.classList.contains('bot-action-btn')) {
             e.stopPropagation();
+            return;
+        }
+
+        // Navigate to author profile if clicking author
+        if (e.target.closest('#author')) {
+            e.stopPropagation();
+            window.location.href = `/profile/${encodeURIComponent(bot.author)}`;
             return;
         }
 

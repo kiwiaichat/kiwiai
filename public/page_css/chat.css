@@ -1,3 +1,12 @@
+#title {
+  position: relative;
+  z-index: 5;
+  display: block;
+  width: 100px;
+  box-sizing: border-box;
+  text-align: center;
+}
+
 #center-wrapper {
   flex: 1;
   display: flex;

@@ -3,6 +3,7 @@ const userId = localStorage.getItem('userId');
         let username = '';
         let editingBotId = null;
         let botData = null;
+        let resetAvatarToDefault = false;
 
 
         const authBtn = document.getElementById('auth-btn');
@@ -66,6 +67,14 @@ const userId = localStorage.getItem('userId');
                                 avatarLabel.textContent = ' (leave empty to keep current avatar)';
                                 avatarLabel.style.color = '#888';
                                 document.getElementById('avatar').parentNode.appendChild(avatarLabel);
+
+                                // Show current bot avatar
+                                const avatarPreview = document.getElementById('avatar-preview');
+                                avatarPreview.src = bot.avatar || '/assets/general/noresponse.png';
+
+                                // Show reset button when editing
+                                const resetBtn = document.getElementById('reset-avatar-btn');
+                                resetBtn.style.display = 'block';
 
                                 const deleteBtn = document.createElement('button');
                                 deleteBtn.type = 'button';
@@ -135,6 +144,7 @@ const userId = localStorage.getItem('userId');
         // Avatar preview functionality
         const avatarInput = document.getElementById('avatar');
         const avatarPreview = document.getElementById('avatar-preview');
+        const resetAvatarBtn = document.getElementById('reset-avatar-btn');
 
         // Make the preview image clickable
         avatarPreview.addEventListener('click', () => {
@@ -148,9 +158,18 @@ const userId = localStorage.getItem('userId');
                 const reader = new FileReader();
                 reader.onload = (e) => {
                     avatarPreview.src = e.target.result;
+                    resetAvatarToDefault = false; // Clear reset flag when new file is selected
                 };
                 reader.readAsDataURL(file);
             }
+        });
+
+        // Handle reset avatar button
+        resetAvatarBtn.addEventListener('click', () => {
+            resetAvatarToDefault = true;
+            avatarPreview.src = '/assets/general/noresponse.png';
+            avatarInput.value = ''; // Clear file input
+            showNotification('Avatar will be reset to default when you update the bot.', 'info');
         });
 
         document.getElementById('maker-form').addEventListener('submit', async function(e) {
@@ -160,6 +179,13 @@ const userId = localStorage.getItem('userId');
                 return;
             }
             const avatarInput = document.getElementById('avatar');
+
+            // Check if user wants to reset to default
+            if (resetAvatarToDefault) {
+                submitForm('DEFAULT');
+                return;
+            }
+
             if (avatarInput.files[0]) {
                 try {
                     // Check NSFW via backend API
@@ -230,8 +256,10 @@ const userId = localStorage.getItem('userId');
                 chats: editingBotId ? (botData.chats || '') : ''
             };
 
-            // Only include avatar if we have new avatar data or if creating a new bot
-            if (avatarData || !editingBotId) {
+            // Handle avatar: include if we have new data, creating new bot, or resetting to default
+            if (avatarData === 'DEFAULT') {
+                formData.avatar = 'DEFAULT';
+            } else if (avatarData || !editingBotId) {
                 formData.avatar = avatarData;
             }
 

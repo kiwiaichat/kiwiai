@@ -301,6 +301,8 @@ app.post('/api/check-nsfw', async (request, reply) => {
 
     const model = await loadNSFWModel();
 
+    
+
     // Get image data from canvas
     const imageData = ctx.getImageData(0, 0, 224, 224);
 
@@ -332,11 +334,11 @@ app.post('/api/check-nsfw', async (request, reply) => {
 
     console.log('NSFW Predictions:', predictions);
 
-    // Threshold for NSFW detection (50% confidence)
-    const NSFW_THRESHOLD = 0.5;
+    const NSFW_THRESHOLD = 0.95;
 
     const nsfwPrediction = predictions.find(p => p.className === 'NSFW');
     const isNSFW = nsfwPrediction && nsfwPrediction.probability > NSFW_THRESHOLD;
+
 
     if (isNSFW) {
       return reply.send({
@@ -795,8 +797,14 @@ app.put("/api/bots/:id", async (request, reply) => {
   const updatedData = { ...request.body };
   delete updatedData.author;
 
-
-  if (updatedData.avatar && updatedData.avatar.startsWith("data:image/")) {
+  // Handle avatar reset to default
+  if (updatedData.avatar === "DEFAULT") {
+    // Delete current avatar if it's not already the default
+    if (bots[botId].avatar && bots[botId].avatar.startsWith("/assets/bots/") && bots[botId].avatar !== "/assets/bots/noresponse.png") {
+      deleteImageFile(bots[botId].avatar);
+    }
+    updatedData.avatar = "/assets/general/noresponse.png";
+  } else if (updatedData.avatar && updatedData.avatar.startsWith("data:image/")) {
     try {
 
       if (bots[botId].avatar && bots[botId].avatar.startsWith("/assets/bots/") && bots[botId].avatar !== "/assets/bots/noresponse.png") {

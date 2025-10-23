@@ -435,11 +435,6 @@ footer a:hover {
     gap: 10px;
   }
 
-  #title {
-    font-size: 18px;
-    margin: 0;
-  }
-
   .nav-actions {
     gap: var(--spacing-sm);
   }
@@ -558,10 +553,6 @@ footer a:hover {
 @media (max-width: 480px) {
   #nav {
     padding: 8px 10px;
-  }
-
-  #title {
-    font-size: 16px;
   }
 
   #auth-btn {
