@@ -55,6 +55,11 @@ const userId = localStorage.getItem('userId');
                                 }
                                 document.getElementById('greeting').value = bot.greeting;
 
+                                // Populate alt_messages if they exist
+                                if (bot.alt_messages && Array.isArray(bot.alt_messages) && bot.alt_messages.length > 0) {
+                                    document.getElementById('alt_messages').value = bot.alt_messages.map(msg => `{${msg}}`).join(', ');
+                                }
+
                                 document.querySelector('#maker-form h2').textContent = 'Edit Bot';
 
                                 document.querySelector('#maker-form button[type="submit"]').textContent = 'Update Bot';
@@ -229,6 +234,8 @@ const userId = localStorage.getItem('userId');
 
             let system_prompt = document.getElementById('sys_pmt').value.trim()
 
+    
+
             if (document.getElementById("examples").value != ""){
                 system_prompt =
                 `
@@ -244,6 +251,17 @@ const userId = localStorage.getItem('userId');
                 `
             }
 
+            // Parse alt_messages: extract content from {brackets}
+            const altMessagesRaw = document.getElementById("alt_messages").value.trim();
+            let altMessagesArray = [];
+            if (altMessagesRaw) {
+                // Match all {content} patterns
+                const matches = altMessagesRaw.match(/\{([^}]+)\}/g);
+                if (matches) {
+                    altMessagesArray = matches.map(match => match.slice(1, -1).trim()).filter(msg => msg);
+                }
+            }
+
             const formData = {
                 name: document.getElementById('name').value.trim(),
                 description: document.getElementById('description').value.trim(),
@@ -252,6 +270,7 @@ const userId = localStorage.getItem('userId');
                 tags: document.getElementById('tags').value.trim().split(',').map(tag => tag.trim()).filter(tag => tag),
                 lorebook: document.getElementById('lorebook').value.trim().split(',').map(url => url.trim()).filter(url => url),
                 sys_pmt: system_prompt,
+                alt_messages: altMessagesArray,
                 greeting: document.getElementById('greeting').value.trim(),
                 chats: editingBotId ? (botData.chats || '') : ''
             };

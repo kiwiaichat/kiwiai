@@ -426,8 +426,6 @@ app.get("/api/profile/:profile", async (request, reply) => {
       return true;
     }
 
-    // Anonymous bots should NOT appear on a user's public profile.
-    // Only the owner (when viewing their own profile or authenticated as the owner)
     // may see their anonymous bots (treated like private bots).
     if (bot.status === "anonymous") {
       return (
@@ -438,7 +436,6 @@ app.get("/api/profile/:profile", async (request, reply) => {
       );
     }
 
-    // Private bots are visible only to the owner
     if (bot.status === "private") {
       return (
         isOwnProfile ||
@@ -1261,7 +1258,7 @@ app.post("/api/upload-bot", async (request, reply) => {
     return;
   }
 
-  const { name, description, status, avatar, sys_pmt, greeting, chats, tags, lorebook } =
+  const { name, description, status, avatar, sys_pmt, greeting, chats, tags, lorebook, alt_messages } =
     request.body;
   if (!name || !description || !status || !sys_pmt || !greeting) {
     return reply
@@ -1275,6 +1272,7 @@ app.post("/api/upload-bot", async (request, reply) => {
     sanitizedGreeting,
     sanitizedChats,
     sanitizedTags,
+    sanitizedAltMessages,
     sanitizedLorebook;
 
   try {
@@ -1307,6 +1305,14 @@ app.post("/api/upload-bot", async (request, reply) => {
           }
         })
         .filter((url) => url !== null && url.length > 0 && url.length <= 2000);
+    }
+
+    sanitizedAltMessages = [];
+    if (Array.isArray(alt_messages)) {
+      sanitizedAltMessages = alt_messages
+        .filter((msg) => typeof msg === "string")
+        .map((msg) => validateAndSanitizeInput(msg.trim(), "text", 15000))
+        .filter((msg) => msg.length > 0);
     }
 
     if (!["public", "private", "anonymous"].includes(status)) {
@@ -1356,6 +1362,7 @@ app.post("/api/upload-bot", async (request, reply) => {
     chats: sanitizedChats,
     tags: sanitizedTags,
     lorebook: sanitizedLorebook,
+    alt_messages: sanitizedAltMessages,
     views: 0,
     token_count: tokenCount,
   };

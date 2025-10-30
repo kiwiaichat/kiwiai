@@ -7,11 +7,11 @@ class API {
     }
 
     getAIProvider() {
-        return localStorage.getItem('aiProvider') || 'https://text.pollinations.ai/openai';
+        return localStorage.getItem('aiProvider') || 'https://offshore.seabase.xyz/text.pollinations.ai/openai';
     }
 
     getAIModel() {
-        return localStorage.getItem('aiModel') || 'mistral';
+        return localStorage.getItem('aiModel') || 'bidara';
     }
 
     getMaxTokens() {

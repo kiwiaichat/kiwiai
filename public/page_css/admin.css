@@ -76,3 +76,10 @@ tr:hover {
 .btn-danger:hover {
     background-color: var(--color-danger-hover);
 }
+
+input {
+    padding: 12px;
+    border-radius: 8px;
+    border: none;
+    background-color: var(--color-bg-card);
+}

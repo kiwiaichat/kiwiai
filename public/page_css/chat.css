@@ -348,19 +348,19 @@
 .message-bubble em {
   font-style: italic;
   opacity: 1;
-  color: rgba(204, 218, 206, 1);
+  color: #fffafa;
 }
 .message-bot .message-bubble em {
-  color: rgba(150, 214, 150, 0.75);
+  color: #e5e5e5;
 }
 
 .message-bubble .quoted-text {
   font-weight: 500;
-  color: rgb(220, 235, 222);
+  color: #fcfcfc;
 }
 
 .message-bot .message-bubble .quoted-text {
-  color: #b8e6b8;
+  color: #d9d9d9;
   font-weight: 500;
 }
 
@@ -523,7 +523,7 @@
 
 .message-bot .message-bubble {
   background-color: #565756;
-  color: #96d696;
+  color: #ffffff;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 

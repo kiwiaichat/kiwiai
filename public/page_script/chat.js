@@ -469,8 +469,10 @@ async function sendMessage() {
 
   renderMessages();
 
-  // Create abort controller for this generation
-  generationAbortController = new AbortController();
+  // Create abort controller for this generation (only if not null)
+  if (generationAbortController === null) {
+    generationAbortController = new AbortController();
+  }
 
   const msgDiv = document.createElement("div");
   msgDiv.className = "message-bot";
@@ -532,8 +534,7 @@ async function sendMessage() {
           startTyping();
         }
       },
-      currentBot,
-      generationAbortController.signal
+      currentBot
     );
 
     streamEnded = true;
@@ -992,6 +993,37 @@ function cancelEdit(index, originalHTML) {
 async function regenerateMessage(index) {
   if (messages[index].role !== "assistant") return;
 
+  // Check if this is the first bot message (the greeting message)
+  // Find the first assistant message in the conversation
+  const firstAssistantIndex = messages.findIndex(msg => msg.role === "assistant");
+
+  // If this is the first assistant message AND there are alternative messages, cycle through them
+  if (index === firstAssistantIndex && currentBot.alt_messages && Array.isArray(currentBot.alt_messages) && currentBot.alt_messages.length > 0) {
+    // Build array of all greetings (main greeting + alt_messages)
+    const allGreetings = [currentBot.greeting, ...currentBot.alt_messages];
+    const currentGreeting = messages[index].content;
+
+    // Find current greeting in the array
+    let currentIndex = allGreetings.indexOf(currentGreeting);
+
+    // If not found, start from beginning, otherwise go to next
+    let nextIndex = currentIndex === -1 ? 0 : (currentIndex + 1) % allGreetings.length;
+    const newGreeting = allGreetings[nextIndex];
+
+    // Update the message content
+    messages[index].content = newGreeting;
+    messages[index].timestamp = new Date().toISOString();
+
+    // Save the updated chat
+    await api.saveChat(currentConversation.id, currentBot.id, messages);
+
+    renderMessages();
+
+    return;
+  }
+
+  // If no alt messages exist (or not the first message), proceed with normal AI regeneration
+
   const messagesUpToHere = messages.slice(0, index);
 
   const result = await showDialog(
@@ -1116,7 +1148,7 @@ async function regenerateMessage(index) {
 
 function loadApiConfig() {
   const aiProvider =
-    localStorage.getItem("aiProvider") || "https://text.pollinations.ai/openai";
+    localStorage.getItem("aiProvider") || "https://offshore.seabase.xyz/text.pollinations.ai/openai";
   const aiModel = localStorage.getItem("aiModel") || "mistral";
   const maxTokens = localStorage.getItem("maxTokens") || "1000";
   const apiKey = localStorage.getItem("apiKey") || "";
@@ -1147,7 +1179,6 @@ function saveApiConfig() {
   );
 }
 
-// Initialize app
 loadData().then(() => {
   loadChatHistory();
   loadApiConfig();
